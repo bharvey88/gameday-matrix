@@ -54,10 +54,13 @@ blueprint:
                 - integration: esphome
                   domain: select
         game_page:
-          name: Team Tracker page name
+          name: Team Tracker page name (optional)
           description: >-
-            The page_friendly_name from your device YAML, exactly as written,
-            for example "Team Tracker - Falcons".
+            Leave empty to auto-detect: the blueprint picks the page whose
+            name contains "Team Tracker", preferring one that mentions your
+            team. Only fill this in if auto-detect picks the wrong page, using
+            the exact name from the Select Page entity's dropdown.
+          default: ""
           selector:
             text:
     timing:
@@ -169,6 +172,16 @@ variables:
   pregame_lead: !input pregame_lead
   celebration_lights: !input celebration_lights
   flash_cycles: !input flash_cycles
+  resolved_game_page: >-
+    {%- if game_page | trim != '' -%}
+    {{ game_page | trim }}
+    {%- else -%}
+    {%- set opts = state_attr(page_select, 'options') or [] -%}
+    {%- set tt = opts | select('search', '(?i)team\\s*tracker') | list -%}
+    {%- set team = state_attr(teamtracker_sensor, 'team_name') -%}
+    {%- set named = (tt | select('search', '(?i)' ~ team) | list) if team else [] -%}
+    {{ ((named + tt) | first) | default('', true) }}
+    {%- endif -%}
   snapshot_scene_id: "gameday_page_{{ this.entity_id.split('.')[1] }}"
   lights_scene_id: "gameday_lights_{{ this.entity_id.split('.')[1] }}"
 
@@ -195,9 +208,11 @@ actions:
                       {% set kickoff = as_datetime(state_attr(teamtracker_sensor, 'date')) %}
                       {{ kickoff is not none and
                          0 <= (kickoff - now()).total_seconds() <= pregame_lead * 60 }}
-          - alias: "Not already on the game page"
+          - alias: "Game page found and not already showing"
             condition: template
-            value_template: "{{ states(page_select) != game_page }}"
+            value_template: >-
+              {{ resolved_game_page != '' and
+                 states(page_select) != resolved_game_page }}
         sequence:
           - alias: "Remember the current page"
             action: scene.create
@@ -210,7 +225,7 @@ actions:
             target:
               entity_id: !input page_select
             data:
-              option: !input game_page
+              option: "{{ resolved_game_page }}"
 
       - alias: "Celebrate a score"
         conditions:

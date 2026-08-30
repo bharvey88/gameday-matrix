@@ -35,7 +35,7 @@ NFL is first (college football works with it too). More sports will get their ow
 2. Create an automation from it and fill in:
    - **Team Tracker sensor**: your team's sensor.
    - **Matrix page select**: the device's "Select Page" entity (search your entities for "Select Page").
-   - **Team Tracker page name**: the `page_friendly_name` from your YAML, exactly. "Team Tracker - Cowboys" in the example above.
+   - **Team Tracker page name**: leave it empty. The automation finds the page whose name contains "Team Tracker" on its own, and prefers the one mentioning your team if you run pages for multiple teams. It's only an override for unusual page names.
    - **Timing**: how early to switch before kickoff and how long the final score lingers.
    - **Celebrations**: pick lights to flash in team colors, and add actions if you want more. Touchdowns and field goals get their own slots; extra points, two-point conversions, and safeties hit the other-score slot.
 
