@@ -51,8 +51,8 @@ blueprint:
           selector:
             entity:
               filter:
-                domain: select
-                integration: esphome
+                - integration: esphome
+                  domain: select
         game_page:
           name: Team Tracker page name
           description: >-
