@@ -1,0 +1,313 @@
+blueprint:
+  name: "Game Day: TeamTracker on HUB75 Matrix"
+  description: >-
+    Shows your team's game on a HUB75 matrix running
+    [hub75-studio](https://github.com/pavlov-net/hub75-studio) (Apollo M-1 or
+    any supported controller). Switches the matrix to your Team Tracker page
+    before kickoff, celebrates scores with your team's colors, and switches
+    back after the game.
+
+
+    **Prerequisites**
+
+    1. Matrix flashed with hub75-studio, with a Team Tracker page added to
+    your device YAML (`packages/pages/teamtracker.yaml`).
+
+    2. The [Team Tracker](https://github.com/vasqued2/ha-teamtracker)
+    integration installed via HACS, with a sensor for your team.
+
+    3. Optional: hub75-studio's media proxy running if you want team logos on
+    the page.
+
+
+    **Setup**
+
+    The page select entity is the matrix's "Select Page" entity. The page name
+    must match the `page_friendly_name` from your device YAML exactly, for
+    example "Team Tracker - Falcons". Full walkthrough in the
+    [README](https://github.com/bharvey88/gameday-matrix).
+  domain: automation
+  source_url: https://github.com/bharvey88/gameday-matrix/blob/main/blueprints/gameday.yaml
+  input:
+    matrix:
+      name: Matrix
+      icon: mdi:television
+      input:
+        teamtracker_sensor:
+          name: Team Tracker sensor
+          description: The Team Tracker sensor for your team.
+          selector:
+            entity:
+              filter:
+                integration: teamtracker
+                domain: sensor
+        page_select:
+          name: Matrix page select
+          description: The matrix's "Select Page" entity.
+          selector:
+            entity:
+              filter:
+                domain: select
+        game_page:
+          name: Team Tracker page name
+          description: >-
+            The page_friendly_name from your device YAML, exactly as written,
+            for example "Team Tracker - Falcons".
+          selector:
+            text:
+    timing:
+      name: Timing
+      icon: mdi:clock-outline
+      input:
+        pregame_lead:
+          name: Pre-game lead-in
+          description: >-
+            Switch to the game page this many minutes before kickoff. 0 waits
+            for the game to actually start.
+          default: 15
+          selector:
+            number:
+              min: 0
+              max: 180
+              step: 5
+              unit_of_measurement: minutes
+        postgame_linger:
+          name: Post-game linger
+          description: >-
+            Keep the final score on screen this long after the game ends, then
+            switch back to whatever page was showing before.
+          default: 10
+          selector:
+            number:
+              min: 0
+              max: 60
+              step: 1
+              unit_of_measurement: minutes
+    celebrations:
+      name: Celebrations
+      icon: mdi:party-popper
+      collapsed: true
+      input:
+        celebration_lights:
+          name: Celebration lights
+          description: >-
+            Lights to flash in your team's colors when your team scores. They
+            return to their previous state afterward. Color-capable lights
+            work best (WLED strips, RGB bulbs).
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: light
+        flash_cycles:
+          name: Flash cycles
+          description: How many times the lights alternate between team colors.
+          default: 4
+          selector:
+            number:
+              min: 1
+              max: 10
+              step: 1
+        score_action:
+          name: Any score action
+          description: >-
+            Runs when your team scores, any sport. For football, the touchdown
+            and field goal actions below run instead when they match.
+          default: []
+          selector:
+            action:
+        touchdown_action:
+          name: Touchdown action (football)
+          description: >-
+            Runs instead of the any-score action when your team's score jumps
+            by 6, 7, or 8 points. Good spot for a WLED preset or effect.
+          default: []
+          selector:
+            action:
+        field_goal_action:
+          name: Field goal action (football)
+          description: >-
+            Runs instead of the any-score action when your team's score jumps
+            by exactly 3 points.
+          default: []
+          selector:
+            action:
+
+mode: queued
+max: 10
+
+triggers:
+  - alias: "Pre-game window check"
+    trigger: time_pattern
+    minutes: "/5"
+    id: pregame_check
+  - alias: "Game started"
+    trigger: state
+    entity_id: !input teamtracker_sensor
+    to: "IN"
+    id: game_start
+  - alias: "Team score changed"
+    trigger: state
+    entity_id: !input teamtracker_sensor
+    attribute: team_score
+    id: score
+  - alias: "Game ended"
+    trigger: state
+    entity_id: !input teamtracker_sensor
+    to: "POST"
+    id: game_end
+
+variables:
+  teamtracker_sensor: !input teamtracker_sensor
+  page_select: !input page_select
+  game_page: !input game_page
+  pregame_lead: !input pregame_lead
+  celebration_lights: !input celebration_lights
+  flash_cycles: !input flash_cycles
+  snapshot_scene_id: "gameday_page_{{ this.entity_id.split('.')[1] }}"
+  lights_scene_id: "gameday_lights_{{ this.entity_id.split('.')[1] }}"
+
+actions:
+  - choose:
+      - alias: "Switch to the game page"
+        conditions:
+          - alias: "Pre-game window or game start"
+            condition: or
+            conditions:
+              - condition: trigger
+                id: game_start
+              - alias: "Inside the pre-game window"
+                condition: and
+                conditions:
+                  - condition: trigger
+                    id: pregame_check
+                  - condition: state
+                    entity_id: !input teamtracker_sensor
+                    state: "PRE"
+                  - alias: "Kickoff is within the lead-in"
+                    condition: template
+                    value_template: >-
+                      {% set kickoff = as_datetime(state_attr(teamtracker_sensor, 'date')) %}
+                      {{ kickoff is not none and
+                         0 <= (kickoff - now()).total_seconds() <= pregame_lead * 60 }}
+          - alias: "Not already on the game page"
+            condition: template
+            value_template: "{{ states(page_select) != game_page }}"
+        sequence:
+          - alias: "Remember the current page"
+            action: scene.create
+            data:
+              scene_id: "{{ snapshot_scene_id }}"
+              snapshot_entities:
+                - "{{ page_select }}"
+          - alias: "Show the game page"
+            action: select.select_option
+            target:
+              entity_id: !input page_select
+            data:
+              option: !input game_page
+
+      - alias: "Celebrate a score"
+        conditions:
+          - condition: trigger
+            id: score
+          - alias: "Game is live"
+            condition: state
+            entity_id: !input teamtracker_sensor
+            state: "IN"
+          - alias: "Score went up (ignore resets and corrections)"
+            condition: template
+            value_template: >-
+              {{ trigger.from_state is not none and trigger.to_state is not none and
+                 (trigger.from_state.attributes.team_score | int(-1)) >= 0 and
+                 (trigger.to_state.attributes.team_score | int(-1)) >
+                 (trigger.from_state.attributes.team_score | int(-1)) }}
+        sequence:
+          - variables:
+              score_delta: >-
+                {{ (trigger.to_state.attributes.team_score | int(0)) -
+                   (trigger.from_state.attributes.team_score | int(0)) }}
+              sport: "{{ state_attr(teamtracker_sensor, 'sport') | lower }}"
+              team_colors: >-
+                {% set tc = state_attr(teamtracker_sensor, 'team_colors') %}
+                {% if tc is string %}{{ [tc, tc] }}
+                {% elif tc is sequence and tc | length > 0 %}{{ tc | list }}
+                {% else %}{{ ['#FFFFFF', '#FF0000'] }}{% endif %}
+              color_a: >-
+                {% set c = (team_colors[0] | replace('#', '')) %}
+                {% if c | length >= 6 %}
+                {{ [c[0:2] | int(base=16), c[2:4] | int(base=16), c[4:6] | int(base=16)] }}
+                {% else %}{{ [255, 255, 255] }}{% endif %}
+              color_b: >-
+                {% set c = ((team_colors[1] if team_colors | length > 1 else team_colors[0]) | replace('#', '')) %}
+                {% if c | length >= 6 %}
+                {{ [c[0:2] | int(base=16), c[2:4] | int(base=16), c[4:6] | int(base=16)] }}
+                {% else %}{{ [255, 0, 0] }}{% endif %}
+          - alias: "Flash the celebration lights in team colors"
+            if:
+              - alias: "Any celebration lights configured"
+                condition: template
+                value_template: "{{ celebration_lights | count > 0 }}"
+            then:
+              - alias: "Remember the lights' current state"
+                action: scene.create
+                data:
+                  scene_id: "{{ lights_scene_id }}"
+                  snapshot_entities: "{{ celebration_lights }}"
+              - alias: "Alternate between the two team colors"
+                repeat:
+                  count: "{{ flash_cycles }}"
+                  sequence:
+                    - alias: "Team color one"
+                      action: light.turn_on
+                      target:
+                        entity_id: !input celebration_lights
+                      data:
+                        rgb_color: "{{ color_a }}"
+                        brightness: 255
+                    - delay:
+                        milliseconds: 450
+                    - alias: "Team color two"
+                      action: light.turn_on
+                      target:
+                        entity_id: !input celebration_lights
+                      data:
+                        rgb_color: "{{ color_b }}"
+                        brightness: 255
+                    - delay:
+                        milliseconds: 450
+              - alias: "Restore the lights"
+                action: scene.turn_on
+                target:
+                  entity_id: "scene.{{ lights_scene_id }}"
+          - alias: "Run the matching score action"
+            choose:
+              - alias: "Touchdown (football, +6 to +8)"
+                conditions:
+                  - condition: template
+                    value_template: "{{ sport == 'football' and score_delta in [6, 7, 8] }}"
+                sequence: !input touchdown_action
+              - alias: "Field goal (football, +3)"
+                conditions:
+                  - condition: template
+                    value_template: "{{ sport == 'football' and score_delta == 3 }}"
+                sequence: !input field_goal_action
+            default: !input score_action
+
+      - alias: "Restore the previous page after the game"
+        conditions:
+          - condition: trigger
+            id: game_end
+        sequence:
+          - alias: "Let the final score linger"
+            delay:
+              minutes: !input postgame_linger
+          - alias: "Restore the page that was showing before (if the snapshot survived)"
+            if:
+              - condition: template
+                value_template: "{{ states('scene.' ~ snapshot_scene_id) not in ['unknown', 'unavailable', none] }}"
+            then:
+              - action: scene.turn_on
+                target:
+                  entity_id: "scene.{{ snapshot_scene_id }}"
