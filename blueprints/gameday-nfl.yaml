@@ -43,11 +43,16 @@ blueprint:
                 domain: sensor
         page_select:
           name: Matrix page select
-          description: The matrix's "Select Page" entity.
+          description: >-
+            The matrix's "Select Page" entity, usually named like
+            "Apollo M-1 Select Page". Type "select page" in the box to find
+            it. Other devices' select entities (WLED palettes, probe
+            selectors) are not it.
           selector:
             entity:
               filter:
                 domain: select
+                integration: esphome
         game_page:
           name: Team Tracker page name
           description: >-
