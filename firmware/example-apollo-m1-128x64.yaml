@@ -1,6 +1,7 @@
 # Example Apollo M-1 config: two 64x64 panels side by side (128x64) with the
-# two-panel Team Tracker page from the bharvey88/hub75-studio fork (gameday
-# branch). Set your team at the bottom and flash with ESPHome.
+# zero-config "Team Tracker Live" page from the bharvey88/hub75-studio fork
+# (gameday branch). No team configuration in here: flash once, then pick your
+# team in the Game Day blueprint in Home Assistant.
 
 substitutions:
   name: "apollo-m1-r6"
@@ -79,9 +80,5 @@ packages:
         vars:
           page_friendly_name: "Clock"
 
-      # Two-panel Team Tracker page (from the gameday branch of the fork)
-      - path: packages/pages/teamtracker-128x64.yaml
-        vars:
-          uid: "cowboys"
-          page_friendly_name: "Team Tracker - Cowboys"
-          entity_id: "sensor.team_tracker_dal"
+      # Zero-config two-panel scoreboard, fed by the Game Day blueprint
+      - path: packages/pages/teamtracker-live.yaml

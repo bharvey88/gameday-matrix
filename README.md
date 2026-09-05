@@ -15,19 +15,11 @@ NFL is first (college football works with it too). More sports will get their ow
 
 ## Prerequisites
 
-1. A HUB75 matrix flashed with [hub75-studio](https://github.com/pavlov-net/hub75-studio).
-2. The Team Tracker page added to your device YAML. Uncomment the `teamtracker.yaml` package block and set your team:
+1. A HUB75 matrix flashed once with [hub75-studio](https://github.com/pavlov-net/hub75-studio) plus the zero-config **Team Tracker Live** page. The [firmware folder](firmware/) has a ready-to-flash example for the Apollo M-1 with two panels side by side (128x64). No teams, sensors, or page names go in the YAML: this blueprint pushes the game data to the device, so switching teams never means reflashing.
+2. The [Team Tracker](https://github.com/vasqued2/ha-teamtracker) integration installed via HACS, with a sensor configured for your NFL or college football team.
+3. Optional, for team logos on the page: hub75-studio's media proxy running and reachable from the device.
 
-   ```yaml
-   - path: packages/pages/teamtracker.yaml
-     vars:
-       uid: "cowboys"
-       page_friendly_name: "Team Tracker - Cowboys"
-       entity_id: "sensor.team_tracker_dal"
-   ```
-
-3. The [Team Tracker](https://github.com/vasqued2/ha-teamtracker) integration installed via HACS, with a sensor configured for your NFL or college football team.
-4. Optional, for team logos on the page: hub75-studio's media proxy running and reachable from the device.
+The original per-team compiled page (`packages/pages/teamtracker.yaml` upstream) still works with this blueprint too; the data push simply has nothing to talk to and skips.
 
 ## Setup
 
@@ -35,7 +27,7 @@ NFL is first (college football works with it too). More sports will get their ow
 2. Create an automation from it and fill in:
    - **Team Tracker sensor**: your team's sensor.
    - **Matrix page select**: the device's "Select Page" entity (search your entities for "Select Page").
-   - **Team Tracker page name**: leave it empty. The automation finds the page whose name contains "Team Tracker" on its own, and prefers the one mentioning your team if you run pages for multiple teams. It's only an override for unusual page names.
+   - **Team Tracker page name** and **data push action**: leave both empty. The automation finds the page by name and works out the device's `teamtracker_update` action from the page select entity. They're only overrides for unusual setups.
    - **Timing**: how early to switch before kickoff and how long the final score lingers.
    - **Celebrations**: pick lights to flash in team colors, and add actions if you want more. Touchdowns and field goals get their own slots; extra points, two-point conversions, and safeties hit the other-score slot.
 

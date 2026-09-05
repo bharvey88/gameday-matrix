@@ -10,8 +10,11 @@ blueprint:
 
     **Prerequisites**
 
-    1. Matrix flashed with hub75-studio, with a Team Tracker page added to
-    your device YAML (`packages/pages/teamtracker.yaml`).
+    1. Matrix flashed once with a hub75-studio config that includes the
+    zero-config "Team Tracker Live" page (see the
+    [example config](https://github.com/bharvey88/gameday-matrix/tree/main/firmware)).
+    No team names or sensors in the YAML; this blueprint pushes the game data.
+    The older per-team compiled page works too.
 
     2. The [Team Tracker](https://github.com/vasqued2/ha-teamtracker)
     integration installed via HACS, with a sensor for your team.
@@ -22,9 +25,8 @@ blueprint:
 
     **Setup**
 
-    The page select entity is the matrix's "Select Page" entity. The page name
-    must match the `page_friendly_name` from your device YAML exactly, for
-    example "Team Tracker - Falcons". Full walkthrough in the
+    Pick your team's sensor and the matrix's "Select Page" entity; the rest is
+    automatic. Full walkthrough in the
     [README](https://github.com/bharvey88/gameday-matrix).
   domain: automation
   source_url: https://github.com/bharvey88/gameday-matrix/blob/main/blueprints/gameday-nfl.yaml
@@ -60,6 +62,16 @@ blueprint:
             name contains "Team Tracker", preferring one that mentions your
             team. Only fill this in if auto-detect picks the wrong page, using
             the exact name from the Select Page entity's dropdown.
+          default: ""
+          selector:
+            text:
+        push_action:
+          name: Data push action override (optional)
+          description: >-
+            Only for the zero-config "Team Tracker Live" page. Normally the
+            blueprint works out the device's esphome.*_teamtracker_update
+            action from the page select entity; set this only if that guess
+            fails (check Developer Tools > Actions for the exact name).
           default: ""
           selector:
             text:
@@ -142,7 +154,7 @@ blueprint:
             action:
 
 mode: queued
-max: 10
+max: 25
 
 triggers:
   - alias: "Pre-game window check"
@@ -164,11 +176,22 @@ triggers:
     entity_id: !input teamtracker_sensor
     to: "POST"
     id: game_end
+  - alias: "Any game data changed"
+    trigger: state
+    entity_id: !input teamtracker_sensor
+    id: push
 
 variables:
   teamtracker_sensor: !input teamtracker_sensor
   page_select: !input page_select
   game_page: !input game_page
+  push_action: !input push_action
+  resolved_push_action: >-
+    {%- if push_action | trim != '' -%}
+    {{ push_action | trim }}
+    {%- else -%}
+    esphome.{{ device_attr(device_id(page_select), 'name') | lower | regex_replace('[^a-z0-9]+', '_') }}_teamtracker_update
+    {%- endif -%}
   pregame_lead: !input pregame_lead
   celebration_lights: !input celebration_lights
   flash_cycles: !input flash_cycles
@@ -186,6 +209,36 @@ variables:
   lights_scene_id: "gameday_lights_{{ this.entity_id.split('.')[1] }}"
 
 actions:
+  - alias: "Push game data to the matrix (Team Tracker Live page)"
+    if:
+      - alias: "Data changed or periodic refresh, sensor has data"
+        condition: template
+        value_template: >-
+          {{ trigger.id in ['push', 'pregame_check'] and
+             states(teamtracker_sensor) not in ['unavailable', 'unknown'] }}
+    then:
+      - alias: "Send current game state to the device"
+        continue_on_error: true
+        action: "{{ resolved_push_action }}"
+        data:
+          game_state: "{{ states(teamtracker_sensor) }}"
+          team_abbr: "{{ state_attr(teamtracker_sensor, 'team_abbr') | default('', true) }}"
+          team_score: "{{ state_attr(teamtracker_sensor, 'team_score') | int(0) }}"
+          opponent_abbr: "{{ state_attr(teamtracker_sensor, 'opponent_abbr') | default('', true) }}"
+          opponent_score: "{{ state_attr(teamtracker_sensor, 'opponent_score') | int(0) }}"
+          team_logo: "{{ state_attr(teamtracker_sensor, 'team_logo') | default('', true) }}"
+          opponent_logo: "{{ state_attr(teamtracker_sensor, 'opponent_logo') | default('', true) }}"
+          status_text: >-
+            {%- set s = states(teamtracker_sensor) -%}
+            {%- if s == 'PRE' -%}
+            {{ state_attr(teamtracker_sensor, 'kickoff_in') | default('Upcoming', true) }}
+            {%- elif s == 'IN' -%}
+            {{ state_attr(teamtracker_sensor, 'clock') | default('In Progress', true) }}
+            {%- elif s == 'POST' -%}
+            {{ state_attr(teamtracker_sensor, 'clock') | default('Final', true) }}
+            {%- else -%}
+            {{ state_attr(teamtracker_sensor, 'kickoff_in') | default(s, true) }}
+            {%- endif -%}
   - choose:
       - alias: "Switch to the game page"
         conditions:
