@@ -29,7 +29,7 @@ blueprint:
     walkthrough in the [README](https://github.com/bharvey88/gameday-matrix).
 
 
-    Blueprint version: 11 (one-hit color hold, everything in sync)
+    Blueprint version: 12 (instant slam through ambient, effects seamless)
   domain: automation
   source_url: https://github.com/bharvey88/gameday-matrix/blob/main/blueprints/gameday-nfl.yaml
   input:
@@ -132,9 +132,10 @@ blueprint:
           description: >-
             Running HyperHDR, Hyperion, or another ambient-capture system that
             streams to your celebration lights? Pick its entities here (the
-            Hyperion integration's light entities work). They pause during
-            celebrations so the effects can actually show, then resume exactly
-            as they were.
+            Hyperion integration's light entities work) AND add them to the
+            celebration lights above so the color hits instantly through the
+            stream. The stream only pauses while an optional WLED effect runs,
+            and resumes exactly as it was.
           default: []
           selector:
             entity:
@@ -318,7 +319,6 @@ variables:
   snapshot_scene_id: "gameday_page_{{ this.entity_id.split('.')[1] }}"
   ambient_pause_entities: !input ambient_pause_entities
   lights_scene_id: "gameday_lights_{{ this.entity_id.split('.')[1] }}"
-  wled_scene_id: "gameday_wled_{{ this.entity_id.split('.')[1] }}"
   ambient_scene_id: "gameday_ambient_{{ this.entity_id.split('.')[1] }}"
 
 actions:
@@ -471,6 +471,14 @@ actions:
                 {%- endif -%}
                 {%- endfor -%}
                 {{ ns.t }}
+              solid_targets: >-
+                {%- set ns = namespace(t=[]) -%}
+                {%- for l in celebration_lights -%}
+                {%- if 'Solid' in (state_attr(l, 'effect_list') or []) -%}
+                {%- set ns.t = ns.t + [l] -%}
+                {%- endif -%}
+                {%- endfor -%}
+                {{ ns.t }}
               team_colors: >-
                 {% set tc = state_attr(teamtracker_sensor, 'team_colors') %}
                 {% if tc is string %}{{ [tc, tc] }}
@@ -503,25 +511,6 @@ actions:
                 {%- elif score_type == 'fg' -%}FIELD GOAL!
                 {%- else -%}SCORE!{%- endif -%}
               splash_color: "{{ (team_colors[0] | replace('#', '')) | int(base=16) }}"
-          - alias: "Pause ambient capture (HyperHDR and friends)"
-            if:
-              - alias: "Ambient entities configured"
-                condition: template
-                value_template: "{{ ambient_pause_entities | count > 0 }}"
-            then:
-              - alias: "Remember the ambient state"
-                action: scene.create
-                data:
-                  scene_id: "{{ ambient_scene_id }}"
-                  snapshot_entities: "{{ ambient_pause_entities }}"
-              - alias: "Stop the ambient stream"
-                continue_on_error: true
-                action: homeassistant.turn_off
-                target:
-                  entity_id: "{{ ambient_pause_entities }}"
-              - alias: "Let the strips leave live mode"
-                delay:
-                  milliseconds: 1500
           - alias: "Flash the celebration lights in team colors"
             if:
               - alias: "Any celebration lights configured"
@@ -540,24 +529,47 @@ actions:
                 data:
                   rgb_color: "{{ color_a }}"
                   brightness: 255
+              - alias: "Clear any leftover effect on strips that keep one"
+                if:
+                  - condition: template
+                    value_template: "{{ solid_targets | count > 0 }}"
+                then:
+                  - continue_on_error: true
+                    action: light.turn_on
+                    target:
+                      entity_id: "{{ solid_targets }}"
+                    data:
+                      effect: "Solid"
+                      rgb_color: "{{ color_a }}"
+                      brightness: 255
               - alias: "Hold, scaled to the score"
                 delay:
                   seconds: "{{ celebration_hold }}"
-              - alias: "Restore the lights"
-                action: scene.turn_on
-                target:
-                  entity_id: "scene.{{ lights_scene_id }}"
           - alias: "Run a light effect for this score type"
             if:
               - alias: "A celebration light supports this effect"
                 condition: template
                 value_template: "{{ fx_targets | length > 0 }}"
             then:
-              - alias: "Remember what the lights were doing"
-                action: scene.create
-                data:
-                  scene_id: "{{ wled_scene_id }}"
-                  snapshot_entities: "{{ fx_targets }}"
+              - alias: "Pause ambient capture so the effect can show"
+                if:
+                  - alias: "Ambient entities configured"
+                    condition: template
+                    value_template: "{{ ambient_pause_entities | count > 0 }}"
+                then:
+                  - alias: "Remember the ambient state"
+                    action: scene.create
+                    data:
+                      scene_id: "{{ ambient_scene_id }}"
+                      snapshot_entities: "{{ ambient_pause_entities }}"
+                  - alias: "Stop the ambient stream (strips hold the team color meanwhile)"
+                    continue_on_error: true
+                    action: homeassistant.turn_off
+                    target:
+                      entity_id: "{{ ambient_pause_entities }}"
+                  - alias: "Let the strips leave live mode"
+                    delay:
+                      milliseconds: 1800
               - alias: "Run the effect in the team color"
                 continue_on_error: true
                 action: light.turn_on
@@ -570,15 +582,15 @@ actions:
               - alias: "Let it run"
                 delay:
                   seconds: !input wled_restore_seconds
-              - alias: "Back to what they were doing"
-                if:
-                  - condition: template
-                    value_template: "{{ states('scene.' ~ wled_scene_id) not in ['unknown', 'unavailable', none] }}"
-                then:
-                  - continue_on_error: true
-                    action: scene.turn_on
-                    target:
-                      entity_id: "scene.{{ wled_scene_id }}"
+          - alias: "Put every celebration light back how it was"
+            if:
+              - condition: template
+                value_template: "{{ states('scene.' ~ lights_scene_id) not in ['unknown', 'unavailable', none] }}"
+            then:
+              - continue_on_error: true
+                action: scene.turn_on
+                target:
+                  entity_id: "scene.{{ lights_scene_id }}"
           - alias: "Run the matching score action"
             choose:
               - alias: "Touchdown (+6 to +8)"
