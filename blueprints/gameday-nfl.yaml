@@ -29,7 +29,7 @@ blueprint:
     walkthrough in the [README](https://github.com/bharvey88/gameday-matrix).
 
 
-    Blueprint version: 17 (victory splash, halftime, pre-game odds and venue)
+    Blueprint version: 18 (halftime shows win probability and records)
   domain: automation
   source_url: https://github.com/bharvey88/gameday-matrix/blob/main/blueprints/gameday-nfl.yaml
   input:
@@ -377,7 +377,19 @@ actions:
             {%- set s = states(teamtracker_sensor) -%}
             {%- set clk = state_attr(teamtracker_sensor, 'clock') | default('', true) -%}
             {%- if s == 'IN' and 'half' in clk | lower -%}
-            HALFTIME
+            {%- set parts = ['HALFTIME'] -%}
+            {%- set abbr = state_attr(teamtracker_sensor, 'team_abbr') | default('', true) -%}
+            {%- set wp = state_attr(teamtracker_sensor, 'team_win_probability') -%}
+            {%- if wp is not none and abbr != '' -%}
+            {%- set parts = parts + [abbr ~ ' win probability ' ~ ((wp * 100) | round(0) | int) ~ '%'] -%}
+            {%- endif -%}
+            {%- set tr = state_attr(teamtracker_sensor, 'team_record') | default('', true) -%}
+            {%- set orec = state_attr(teamtracker_sensor, 'opponent_record') | default('', true) -%}
+            {%- set oabbr = state_attr(teamtracker_sensor, 'opponent_abbr') | default('', true) -%}
+            {%- if tr != '' and orec != '' -%}
+            {%- set parts = parts + [abbr ~ ' ' ~ tr ~ ' vs ' ~ oabbr ~ ' ' ~ orec] -%}
+            {%- endif -%}
+            {{ parts | join('  |  ') }}
             {%- elif s == 'IN' -%}
             {%- set parts = [] -%}
             {%- if 'Down & distance' in ticker_parts -%}
