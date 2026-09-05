@@ -149,29 +149,64 @@ blueprint:
               min: 1
               max: 10
               step: 1
-        touchdown_preset:
-          name: WLED preset on touchdown
+        touchdown_effect:
+          name: Light effect on touchdown
           description: >-
-            Exact preset name to run on a touchdown, for example "Fireworks".
-            Runs on every celebration light above that is a WLED strip with a
-            preset by that name; the strip returns to its previous state
-            afterward.
-          default: ""
+            Runs on every celebration light that supports it (WLED strips
+            support all of these), in your team's color, then the light goes
+            back to what it was doing.
+          default: "Fireworks"
           selector:
-            text:
-        field_goal_preset:
-          name: WLED preset on field goal
-          default: ""
+            select:
+              options:
+                - "None"
+                - "Fireworks"
+                - "Glitter"
+                - "Sparkle"
+                - "Strobe"
+                - "Strobe Rainbow"
+                - "Rainbow"
+                - "Chase Rainbow"
+                - "Colortwinkles"
+                - "Meteor"
+                - "Dancing Shadows"
+        field_goal_effect:
+          name: Light effect on field goal
+          default: "Sparkle"
           selector:
-            text:
-        score_preset:
-          name: WLED preset on any other score
-          default: ""
+            select:
+              options:
+                - "None"
+                - "Fireworks"
+                - "Glitter"
+                - "Sparkle"
+                - "Strobe"
+                - "Strobe Rainbow"
+                - "Rainbow"
+                - "Chase Rainbow"
+                - "Colortwinkles"
+                - "Meteor"
+                - "Dancing Shadows"
+        score_effect:
+          name: Light effect on any other score
+          default: "None"
           selector:
-            text:
+            select:
+              options:
+                - "None"
+                - "Fireworks"
+                - "Glitter"
+                - "Sparkle"
+                - "Strobe"
+                - "Strobe Rainbow"
+                - "Rainbow"
+                - "Chase Rainbow"
+                - "Colortwinkles"
+                - "Meteor"
+                - "Dancing Shadows"
         wled_restore_seconds:
-          name: WLED celebration length
-          description: How long the preset runs before the strip goes back to what it was doing.
+          name: Effect celebration length
+          description: How long the effect runs before the lights go back to what they were doing.
           default: 15
           selector:
             number:
@@ -260,9 +295,9 @@ variables:
   pregame_lead: !input pregame_lead
   celebration_lights: !input celebration_lights
   flash_cycles: !input flash_cycles
-  touchdown_preset: !input touchdown_preset
-  field_goal_preset: !input field_goal_preset
-  score_preset: !input score_preset
+  touchdown_effect: !input touchdown_effect
+  field_goal_effect: !input field_goal_effect
+  score_effect: !input score_effect
   resolved_game_page: >-
     {%- if game_page | trim != '' -%}
     {{ game_page | trim }}
@@ -415,26 +450,16 @@ actions:
                    else flash_cycles if score_type == 'fg'
                    else [flash_cycles // 2, 2] | max }}
               flash_ms: "{{ 250 if score_type == 'td' else 450 }}"
-              wled_selects: >-
-                {%- set ns = namespace(sels=[]) -%}
-                {%- for l in celebration_lights -%}
-                {%- for e in device_entities(device_id(l)) -%}
-                {%- if e.startswith('select.') and e.endswith('_preset') -%}
-                {%- set ns.sels = ns.sels + [e] -%}
+              fx_effect: >-
+                {%- if score_type == 'td' -%}{{ touchdown_effect }}
+                {%- elif score_type == 'fg' -%}{{ field_goal_effect }}
+                {%- else -%}{{ score_effect }}
                 {%- endif -%}
-                {%- endfor -%}
-                {%- endfor -%}
-                {{ ns.sels | unique | list }}
-              wled_preset: >-
-                {%- if score_type == 'td' -%}{{ touchdown_preset | trim }}
-                {%- elif score_type == 'fg' -%}{{ field_goal_preset | trim }}
-                {%- else -%}{{ score_preset | trim }}
-                {%- endif -%}
-              wled_targets: >-
+              fx_targets: >-
                 {%- set ns = namespace(t=[]) -%}
-                {%- for e in wled_selects -%}
-                {%- if wled_preset != '' and wled_preset in (state_attr(e, 'options') or []) -%}
-                {%- set ns.t = ns.t + [e] -%}
+                {%- for l in celebration_lights -%}
+                {%- if fx_effect != 'None' and fx_effect in (state_attr(l, 'effect_list') or []) -%}
+                {%- set ns.t = ns.t + [l] -%}
                 {%- endif -%}
                 {%- endfor -%}
                 {{ ns.t }}
@@ -512,28 +537,30 @@ actions:
                 action: scene.turn_on
                 target:
                   entity_id: "scene.{{ lights_scene_id }}"
-          - alias: "Run a WLED preset for this score type"
+          - alias: "Run a light effect for this score type"
             if:
-              - alias: "A celebration light is a WLED strip with this preset"
+              - alias: "A celebration light supports this effect"
                 condition: template
-                value_template: "{{ wled_targets | length > 0 }}"
+                value_template: "{{ fx_targets | length > 0 }}"
             then:
-              - alias: "Remember the strips' current presets"
+              - alias: "Remember what the lights were doing"
                 action: scene.create
                 data:
                   scene_id: "{{ wled_scene_id }}"
-                  snapshot_entities: "{{ wled_targets }}"
-              - alias: "Fire the celebration preset"
+                  snapshot_entities: "{{ fx_targets }}"
+              - alias: "Run the effect in the team color"
                 continue_on_error: true
-                action: select.select_option
+                action: light.turn_on
                 target:
-                  entity_id: "{{ wled_targets }}"
+                  entity_id: "{{ fx_targets }}"
                 data:
-                  option: "{{ wled_preset }}"
+                  effect: "{{ fx_effect }}"
+                  rgb_color: "{{ color_a }}"
+                  brightness: 255
               - alias: "Let it run"
                 delay:
                   seconds: !input wled_restore_seconds
-              - alias: "Back to the previous preset (if one was active)"
+              - alias: "Back to what they were doing"
                 if:
                   - condition: template
                     value_template: "{{ states('scene.' ~ wled_scene_id) not in ['unknown', 'unavailable', none] }}"

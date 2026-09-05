@@ -33,7 +33,7 @@ The original per-team compiled page (`packages/pages/teamtracker.yaml` upstream)
 
    Firmware and blueprint move together: the scoreboard extras need both the current `gameday` firmware and the current blueprint. Mismatched versions degrade gracefully (the push just skips), but you only get the full show when both are fresh.
    - **Timing**: how early to switch before kickoff and how long the final score lingers.
-   - **Celebrations**: pick lights and they flash in team colors, automatically scaled to the play: touchdowns strobe long and fast, field goals get a standard flash, extra points a quick pulse. Got WLED strips among those lights? Just type a preset name per score type ("Fireworks" on a touchdown); every selected strip that has a preset by that name runs it and then returns to what it was doing, no extra entities to pick. Free-form action slots remain for anything else.
+   - **Celebrations**: pick lights and they flash in team colors, automatically scaled to the play: touchdowns strobe long and fast, field goals get a standard flash, extra points a quick pulse. On top of that, pick a light effect per score type from a dropdown (touchdowns default to "Fireworks"): every selected light that supports the effect runs it in your team's color for a bit and then goes back to what it was doing. WLED strips support all of the listed effects out of the box, nothing to set up. Free-form action slots remain for anything else.
 
 ## Notes
 
