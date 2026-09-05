@@ -1,0 +1,88 @@
+# Example Apollo M-1 config: two 64x64 panels side by side (128x64) with the
+# local two-panel Team Tracker page from this folder.
+# Copy this next to teamtracker-128x64.yaml, set your team, flash with ESPHome.
+
+substitutions:
+  name: "apollo-m1-r6"
+  friendly_name: "Apollo M-1"
+
+  # ===== Display / Panel =====
+  display_panel_width: 64
+  display_panel_height: 64
+  display_layout: HORIZONTAL
+  display_layout_rows: 1
+  display_layout_cols: 2
+  display_scan_wiring: STANDARD_TWO_SCAN
+
+  DISPLAY_W: ${display_panel_width * display_layout_cols}
+  DISPLAY_H: ${display_panel_height * display_layout_rows}
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  name_add_mac_suffix: true
+
+logger:
+
+api:
+
+ota:
+  platform: esphome
+
+wifi:
+  power_save_mode: none
+  ap:
+
+captive_portal:
+
+web_server:
+  version: 3
+
+packages:
+  remote_package_files:
+    url: https://github.com/pavlov-net/hub75-studio
+    ref: main
+    refresh: 0s
+    files:
+      # Sets minimum supported ESPHome version
+      - path: packages/common/esphome-version.yaml
+
+      # Base board/pins, LVGL root, services, etc.
+      - path: packages/controllers/apollo-automation-m1-rev6.yaml
+        vars:
+          panel_width: ${display_panel_width}
+          panel_height: ${display_panel_height}
+          layout: ${display_layout}
+          layout_rows: ${display_layout_rows}
+          layout_cols: ${display_layout_cols}
+          scan_wiring: ${display_scan_wiring}
+
+      # Shared helpers, sensors, buttons
+      - path: packages/common/utils.yaml
+
+      # Shared fonts and LVGL styles
+      - path: packages/common/theme.yaml
+
+      # Shared DDP and DDP websocket control config (needed for team logos)
+      - path: packages/common/ddp.yaml
+        vars:
+          ddp_port: "4048"
+          ws_ddp_host: "homeassistant.local"
+          ws_ddp_port: "8788"
+          device_id: "${name}"
+
+      # Basic boot screen
+      - path: packages/pages/bios.yaml
+
+      # Simple clock page (something to restore to after the game)
+      - path: packages/pages/clock.yaml
+        vars:
+          page_friendly_name: "Clock"
+
+  # Local two-panel Team Tracker page (the file next to this one)
+  teamtracker_local: !include
+    file: teamtracker-128x64.yaml
+    vars:
+      uid: "cowboys"
+      page_friendly_name: "Team Tracker - Cowboys"
+      entity_id: "sensor.team_tracker_dal"
