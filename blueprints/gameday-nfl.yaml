@@ -25,9 +25,11 @@ blueprint:
 
     **Setup**
 
-    Pick your team's sensor and the matrix's "Select Page" entity; the rest is
-    automatic. Full walkthrough in the
-    [README](https://github.com/bharvey88/gameday-matrix).
+    Pick your team's sensor and your matrix; the rest is automatic. Full
+    walkthrough in the [README](https://github.com/bharvey88/gameday-matrix).
+
+
+    Blueprint version: 8 (light effect dropdowns)
   domain: automation
   source_url: https://github.com/bharvey88/gameday-matrix/blob/main/blueprints/gameday-nfl.yaml
   input:
