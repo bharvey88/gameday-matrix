@@ -65,6 +65,23 @@ blueprint:
           default: ""
           selector:
             text:
+        ticker_parts:
+          name: Ticker content
+          description: >-
+            What scrolls along the bottom of the scoreboard during a game.
+            Long plays are trimmed so the ticker stays readable.
+          default:
+            - "Game clock"
+            - "Down & distance"
+            - "Last play"
+          selector:
+            select:
+              multiple: true
+              options:
+                - "Game clock"
+                - "Down & distance"
+                - "Last play"
+                - "TV network (pre-game)"
         push_action:
           name: Data push action override (optional)
           description: >-
@@ -219,6 +236,7 @@ variables:
   matrix_device: !input matrix_device
   game_page: !input game_page
   push_action: !input push_action
+  ticker_parts: !input ticker_parts
   page_select: >-
     {%- set ns = namespace(found='', fallback='') -%}
     {%- for e in device_entities(matrix_device) -%}
@@ -279,12 +297,40 @@ actions:
           opponent_score: "{{ state_attr(teamtracker_sensor, 'opponent_score') | int(0) }}"
           team_logo: "{{ state_attr(teamtracker_sensor, 'team_logo') | default('', true) }}"
           opponent_logo: "{{ state_attr(teamtracker_sensor, 'opponent_logo') | default('', true) }}"
+          possession: >-
+            {%- set poss = state_attr(teamtracker_sensor, 'possession') | string -%}
+            {%- if poss == state_attr(teamtracker_sensor, 'team_id') | string and poss != 'None' -%}1
+            {%- elif poss == state_attr(teamtracker_sensor, 'opponent_id') | string and poss != 'None' -%}2
+            {%- else -%}0{%- endif -%}
+          team_timeouts: "{{ state_attr(teamtracker_sensor, 'team_timeouts') | int(0) }}"
+          opponent_timeouts: "{{ state_attr(teamtracker_sensor, 'opponent_timeouts') | int(0) }}"
+          team_record: "{{ state_attr(teamtracker_sensor, 'team_record') | default('', true) }}"
+          opponent_record: "{{ state_attr(teamtracker_sensor, 'opponent_record') | default('', true) }}"
+          splash_text: ""
+          splash_color: 0
           status_text: >-
             {%- set s = states(teamtracker_sensor) -%}
-            {%- if s == 'PRE' -%}
-            {{ state_attr(teamtracker_sensor, 'kickoff_in') | default('Upcoming', true) }}
-            {%- elif s == 'IN' -%}
-            {{ state_attr(teamtracker_sensor, 'clock') | default('In Progress', true) }}
+            {%- if s == 'IN' -%}
+            {%- set parts = [] -%}
+            {%- if 'Down & distance' in ticker_parts -%}
+            {%- set parts = parts + [state_attr(teamtracker_sensor, 'down_distance_text') | default('', true)] -%}
+            {%- endif -%}
+            {%- if 'Game clock' in ticker_parts -%}
+            {%- set parts = parts + [state_attr(teamtracker_sensor, 'clock') | default('', true)] -%}
+            {%- endif -%}
+            {%- if 'Last play' in ticker_parts -%}
+            {%- set parts = parts + [state_attr(teamtracker_sensor, 'last_play') | default('', true) | truncate(160, true, '...')] -%}
+            {%- endif -%}
+            {%- set line = parts | select('ne', '') | join('  |  ') -%}
+            {{ line if line != '' else 'In Progress' }}
+            {%- elif s == 'PRE' -%}
+            {%- set kick = state_attr(teamtracker_sensor, 'kickoff_in') | default('Upcoming', true) -%}
+            {%- set tv = state_attr(teamtracker_sensor, 'tv_network') | default('', true) -%}
+            {%- if 'TV network (pre-game)' in ticker_parts and tv != '' -%}
+            {{ kick }}  |  {{ tv }}
+            {%- else -%}
+            {{ kick }}
+            {%- endif -%}
             {%- elif s == 'POST' -%}
             {{ state_attr(teamtracker_sensor, 'clock') | default('Final', true) }}
             {%- else -%}
@@ -407,6 +453,28 @@ actions:
                 {% if c | length >= 6 %}
                 {{ [c[0:2] | int(base=16), c[2:4] | int(base=16), c[4:6] | int(base=16)] }}
                 {% else %}{{ [255, 0, 0] }}{% endif %}
+          - alias: "Splash the score on the matrix"
+            continue_on_error: true
+            action: "{{ resolved_push_action }}"
+            data:
+              game_state: "{{ states(teamtracker_sensor) }}"
+              team_abbr: "{{ state_attr(teamtracker_sensor, 'team_abbr') | default('', true) }}"
+              team_score: "{{ state_attr(teamtracker_sensor, 'team_score') | int(0) }}"
+              opponent_abbr: "{{ state_attr(teamtracker_sensor, 'opponent_abbr') | default('', true) }}"
+              opponent_score: "{{ state_attr(teamtracker_sensor, 'opponent_score') | int(0) }}"
+              team_logo: "{{ state_attr(teamtracker_sensor, 'team_logo') | default('', true) }}"
+              opponent_logo: "{{ state_attr(teamtracker_sensor, 'opponent_logo') | default('', true) }}"
+              possession: 0
+              team_timeouts: "{{ state_attr(teamtracker_sensor, 'team_timeouts') | int(0) }}"
+              opponent_timeouts: "{{ state_attr(teamtracker_sensor, 'opponent_timeouts') | int(0) }}"
+              team_record: "{{ state_attr(teamtracker_sensor, 'team_record') | default('', true) }}"
+              opponent_record: "{{ state_attr(teamtracker_sensor, 'opponent_record') | default('', true) }}"
+              status_text: "{{ state_attr(teamtracker_sensor, 'clock') | default('In Progress', true) }}"
+              splash_text: >-
+                {%- if score_type == 'td' -%}TOUCHDOWN!
+                {%- elif score_type == 'fg' -%}FIELD GOAL!
+                {%- else -%}SCORE!{%- endif -%}
+              splash_color: "{{ (team_colors[0] | replace('#', '')) | int(base=16) }}"
           - alias: "Flash the celebration lights in team colors"
             if:
               - alias: "Any celebration lights configured"

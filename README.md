@@ -7,6 +7,7 @@ NFL is first (college football works with it too). More sports will get their ow
 ## NFL Game Day
 
 - Switches the matrix to your Team Tracker page before kickoff (configurable lead-in, or right at game start)
+- Live scoreboard extras: a bottom ticker you compose yourself (game clock, down and distance, play-by-play text, pre-game TV network), gold abbreviation for the team with possession, timeout pips, team records, and a full-screen team-color "TOUCHDOWN!" splash on the matrix when you score
 - Flashes lights in your team's colors on every score, then puts them back how they were
 - Runs your own actions with separate slots for touchdowns, field goals, and everything else, a good place for a WLED touchdown preset
 - Keeps the final score up for a while after the game, then switches back to whatever page was showing before
@@ -27,7 +28,10 @@ The original per-team compiled page (`packages/pages/teamtracker.yaml` upstream)
 2. Create an automation from it and fill in:
    - **Team Tracker sensor**: your team's sensor.
    - **Matrix**: pick your matrix from the dropdown. It only lists hub75-studio devices (firmware built from the gameday branch or a recent factory image; older source builds don't identify themselves and won't appear until reflashed).
+   - **Ticker content**: tick what scrolls along the bottom during a game. Default is clock + down and distance + last play; play text is trimmed to 160 characters so an overturned-call saga doesn't scroll for a minute. Drop "Last play" if you prefer a calm board, add "TV network (pre-game)" to see where to watch before kickoff.
    - **Team Tracker page name** and **data push action**: leave both empty. The automation finds the device's page selector and `teamtracker_update` action on its own. They're only overrides for unusual setups.
+
+   Firmware and blueprint move together: the scoreboard extras need both the current `gameday` firmware and the current blueprint. Mismatched versions degrade gracefully (the push just skips), but you only get the full show when both are fresh.
    - **Timing**: how early to switch before kickoff and how long the final score lingers.
    - **Celebrations**: pick lights and they flash in team colors, automatically scaled to the play: touchdowns strobe long and fast, field goals get a standard flash, extra points a quick pulse. Got WLED strips among those lights? Just type a preset name per score type ("Fireworks" on a touchdown); every selected strip that has a preset by that name runs it and then returns to what it was doing, no extra entities to pick. Free-form action slots remain for anything else.
 
