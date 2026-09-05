@@ -29,7 +29,7 @@ blueprint:
     walkthrough in the [README](https://github.com/bharvey88/gameday-matrix).
 
 
-    Blueprint version: 14 (opponent scores show on the matrix, optional)
+    Blueprint version: 15 (proper names for extra points and 2-point plays)
   domain: automation
   source_url: https://github.com/bharvey88/gameday-matrix/blob/main/blueprints/gameday-nfl.yaml
   input:
@@ -532,6 +532,8 @@ actions:
               splash_text: >-
                 {%- if score_type == 'td' -%}TOUCHDOWN!
                 {%- elif score_type == 'fg' -%}FIELD GOAL!
+                {%- elif sport == 'football' and score_delta == 1 -%}EXTRA POINT
+                {%- elif sport == 'football' and score_delta == 2 -%}+2!
                 {%- else -%}SCORE!{%- endif -%}
               splash_color: "{{ (team_colors[0] | replace('#', '')) | int(base=16) }}"
           - alias: "Flash the celebration lights in team colors"
@@ -665,6 +667,8 @@ actions:
               opp_splash_text: >-
                 {%- if sport == 'football' and opp_delta in [6, 7, 8] -%}{{ opp_abbr }} TD
                 {%- elif sport == 'football' and opp_delta == 3 -%}{{ opp_abbr }} FG
+                {%- elif sport == 'football' and opp_delta == 1 -%}{{ opp_abbr }} XP
+                {%- elif sport == 'football' and opp_delta == 2 -%}{{ opp_abbr }} +2
                 {%- else -%}{{ opp_abbr }} SCORE
                 {%- endif -%}
               opp_colors: >-
