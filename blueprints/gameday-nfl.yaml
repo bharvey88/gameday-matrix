@@ -29,7 +29,7 @@ blueprint:
     walkthrough in the [README](https://github.com/bharvey88/gameday-matrix).
 
 
-    Blueprint version: 16 (full words on the splash)
+    Blueprint version: 17 (victory splash, halftime, pre-game odds and venue)
   domain: automation
   source_url: https://github.com/bharvey88/gameday-matrix/blob/main/blueprints/gameday-nfl.yaml
   input:
@@ -375,13 +375,16 @@ actions:
           splash_color: 0
           status_text: >-
             {%- set s = states(teamtracker_sensor) -%}
-            {%- if s == 'IN' -%}
+            {%- set clk = state_attr(teamtracker_sensor, 'clock') | default('', true) -%}
+            {%- if s == 'IN' and 'half' in clk | lower -%}
+            HALFTIME
+            {%- elif s == 'IN' -%}
             {%- set parts = [] -%}
             {%- if 'Down & distance' in ticker_parts -%}
             {%- set parts = parts + [state_attr(teamtracker_sensor, 'down_distance_text') | default('', true)] -%}
             {%- endif -%}
             {%- if 'Game clock' in ticker_parts -%}
-            {%- set parts = parts + [state_attr(teamtracker_sensor, 'clock') | default('', true)] -%}
+            {%- set parts = parts + [clk] -%}
             {%- endif -%}
             {%- if 'Last play' in ticker_parts -%}
             {%- set parts = parts + [state_attr(teamtracker_sensor, 'last_play') | default('', true) | truncate(160, true, '...')] -%}
@@ -389,15 +392,26 @@ actions:
             {%- set line = parts | select('ne', '') | join('  |  ') -%}
             {{ line if line != '' else 'In Progress' }}
             {%- elif s == 'PRE' -%}
-            {%- set kick = state_attr(teamtracker_sensor, 'kickoff_in') | default('Upcoming', true) -%}
+            {%- set parts = [state_attr(teamtracker_sensor, 'kickoff_in') | default('Upcoming', true)] -%}
+            {%- set odds = state_attr(teamtracker_sensor, 'odds') -%}
+            {%- if odds is not none and odds | string not in ['None', ''] -%}
+            {%- set parts = parts + [odds | string] -%}
+            {%- endif -%}
+            {%- set ou = state_attr(teamtracker_sensor, 'overunder') -%}
+            {%- if ou is not none and ou | string not in ['None', ''] -%}
+            {%- set parts = parts + ['O/U ' ~ ou] -%}
+            {%- endif -%}
             {%- set tv = state_attr(teamtracker_sensor, 'tv_network') | default('', true) -%}
             {%- if 'TV network (pre-game)' in ticker_parts and tv != '' -%}
-            {{ kick }}  |  {{ tv }}
-            {%- else -%}
-            {{ kick }}
+            {%- set parts = parts + [tv] -%}
             {%- endif -%}
+            {%- set venue = state_attr(teamtracker_sensor, 'venue') | default('', true) -%}
+            {%- if venue != '' -%}
+            {%- set parts = parts + [venue] -%}
+            {%- endif -%}
+            {{ parts | select('ne', '') | join('  |  ') }}
             {%- elif s == 'POST' -%}
-            {{ state_attr(teamtracker_sensor, 'clock') | default('Final', true) }}
+            {{ clk if clk != '' else 'Final' }}
             {%- else -%}
             {{ state_attr(teamtracker_sensor, 'kickoff_in') | default(s, true) }}
             {%- endif -%}
@@ -707,6 +721,35 @@ actions:
           - condition: trigger
             id: game_end
         sequence:
+          - alias: "Victory splash when we won"
+            if:
+              - condition: template
+                value_template: "{{ state_attr(teamtracker_sensor, 'team_winner') == true }}"
+            then:
+              - variables:
+                  win_colors: >-
+                    {% set tc = state_attr(teamtracker_sensor, 'team_colors') %}
+                    {% if tc is string %}{{ [tc, tc] }}
+                    {% elif tc is sequence and tc | length > 0 %}{{ tc | list }}
+                    {% else %}{{ ['#FFD000', '#FFFFFF'] }}{% endif %}
+              - continue_on_error: true
+                action: "{{ resolved_push_action }}"
+                data:
+                  game_state: "POST"
+                  team_abbr: "{{ state_attr(teamtracker_sensor, 'team_abbr') | default('', true) }}"
+                  team_score: "{{ state_attr(teamtracker_sensor, 'team_score') | int(0) }}"
+                  opponent_abbr: "{{ state_attr(teamtracker_sensor, 'opponent_abbr') | default('', true) }}"
+                  opponent_score: "{{ state_attr(teamtracker_sensor, 'opponent_score') | int(0) }}"
+                  team_logo: "{{ state_attr(teamtracker_sensor, 'team_logo') | default('', true) }}"
+                  opponent_logo: "{{ state_attr(teamtracker_sensor, 'opponent_logo') | default('', true) }}"
+                  possession: 0
+                  team_timeouts: "{{ state_attr(teamtracker_sensor, 'team_timeouts') | int(0) }}"
+                  opponent_timeouts: "{{ state_attr(teamtracker_sensor, 'opponent_timeouts') | int(0) }}"
+                  team_record: "{{ state_attr(teamtracker_sensor, 'team_record') | default('', true) }}"
+                  opponent_record: "{{ state_attr(teamtracker_sensor, 'opponent_record') | default('', true) }}"
+                  status_text: "{{ state_attr(teamtracker_sensor, 'clock') | default('Final', true) }}"
+                  splash_text: "{{ state_attr(teamtracker_sensor, 'team_abbr') | default('', true) }} WINS!"
+                  splash_color: "{{ (win_colors[0] | replace('#', '')) | int(base=16) }}"
           - alias: "Let the final score linger"
             delay:
               minutes: !input postgame_linger
