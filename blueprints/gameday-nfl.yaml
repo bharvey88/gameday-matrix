@@ -29,7 +29,7 @@ blueprint:
     walkthrough in the [README](https://github.com/bharvey88/gameday-matrix).
 
 
-    Blueprint version: 9 (ambient capture pause)
+    Blueprint version: 10 (strobe-first celebrations)
   domain: automation
   source_url: https://github.com/bharvey88/gameday-matrix/blob/main/blueprints/gameday-nfl.yaml
   input:
@@ -167,60 +167,49 @@ blueprint:
               max: 10
               step: 1
         touchdown_effect:
-          name: Light effect on touchdown
+          name: Extra light effect on touchdown (optional)
           description: >-
-            Runs on every celebration light that supports it (WLED strips
-            support all of these), in your team's color, then the light goes
-            back to what it was doing.
-          default: "Fireworks"
-          selector:
-            select:
-              options:
-                - "None"
-                - "Fireworks"
-                - "Glitter"
-                - "Sparkle"
-                - "Strobe"
-                - "Strobe Rainbow"
-                - "Rainbow"
-                - "Chase Rainbow"
-                - "Colortwinkles"
-                - "Meteor"
-                - "Dancing Shadows"
-        field_goal_effect:
-          name: Light effect on field goal
-          default: "Sparkle"
-          selector:
-            select:
-              options:
-                - "None"
-                - "Fireworks"
-                - "Glitter"
-                - "Sparkle"
-                - "Strobe"
-                - "Strobe Rainbow"
-                - "Rainbow"
-                - "Chase Rainbow"
-                - "Colortwinkles"
-                - "Meteor"
-                - "Dancing Shadows"
-        score_effect:
-          name: Light effect on any other score
+            The team-color strobe is the main celebration and needs nothing
+            set here. Add a WLED effect on top if you want motion; "Lightning"
+            reads great on strips behind a TV. Runs on every celebration light
+            that supports it, then the light goes back to what it was doing.
           default: "None"
           selector:
             select:
               options:
                 - "None"
-                - "Fireworks"
-                - "Glitter"
-                - "Sparkle"
+                - "Lightning"
                 - "Strobe"
-                - "Strobe Rainbow"
-                - "Rainbow"
-                - "Chase Rainbow"
-                - "Colortwinkles"
-                - "Meteor"
-                - "Dancing Shadows"
+                - "Strobe Mega"
+                - "Chase Flash"
+                - "Theater"
+                - "Wipe"
+        field_goal_effect:
+          name: Extra light effect on field goal (optional)
+          default: "None"
+          selector:
+            select:
+              options:
+                - "None"
+                - "Lightning"
+                - "Strobe"
+                - "Strobe Mega"
+                - "Chase Flash"
+                - "Theater"
+                - "Wipe"
+        score_effect:
+          name: Extra light effect on any other score (optional)
+          default: "None"
+          selector:
+            select:
+              options:
+                - "None"
+                - "Lightning"
+                - "Strobe"
+                - "Strobe Mega"
+                - "Chase Flash"
+                - "Theater"
+                - "Wipe"
         wled_restore_seconds:
           name: Effect celebration length
           description: How long the effect runs before the lights go back to what they were doing.
@@ -465,10 +454,10 @@ actions:
                 {%- elif sport == 'football' and score_delta == 3 -%}fg
                 {%- else -%}other{%- endif -%}
               celebration_cycles: >-
-                {{ flash_cycles * 2 if score_type == 'td'
+                {{ flash_cycles * 3 if score_type == 'td'
                    else flash_cycles if score_type == 'fg'
                    else [flash_cycles // 2, 2] | max }}
-              flash_ms: "{{ 250 if score_type == 'td' else 450 }}"
+              flash_ms: "{{ 200 if score_type == 'td' else 450 }}"
               fx_effect: >-
                 {%- if score_type == 'td' -%}{{ touchdown_effect }}
                 {%- elif score_type == 'fg' -%}{{ field_goal_effect }}
@@ -493,10 +482,14 @@ actions:
                 {{ [c[0:2] | int(base=16), c[2:4] | int(base=16), c[4:6] | int(base=16)] }}
                 {% else %}{{ [255, 255, 255] }}{% endif %}
               color_b: >-
+                {% if score_type == 'td' %}
+                {{ [255, 255, 255] }}
+                {% else %}
                 {% set c = ((team_colors[1] if team_colors | length > 1 else team_colors[0]) | replace('#', '')) %}
                 {% if c | length >= 6 %}
                 {{ [c[0:2] | int(base=16), c[2:4] | int(base=16), c[4:6] | int(base=16)] }}
                 {% else %}{{ [255, 0, 0] }}{% endif %}
+                {% endif %}
           - alias: "Splash the score on the matrix"
             continue_on_error: true
             action: "{{ resolved_push_action }}"
