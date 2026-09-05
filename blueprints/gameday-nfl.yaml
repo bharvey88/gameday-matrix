@@ -29,7 +29,7 @@ blueprint:
     walkthrough in the [README](https://github.com/bharvey88/gameday-matrix).
 
 
-    Blueprint version: 13 (scoreboard reappears within seconds, not minutes)
+    Blueprint version: 14 (opponent scores show on the matrix, optional)
   domain: automation
   source_url: https://github.com/bharvey88/gameday-matrix/blob/main/blueprints/gameday-nfl.yaml
   input:
@@ -245,6 +245,21 @@ blueprint:
           default: []
           selector:
             action:
+        opponent_splash:
+          name: Show opponent scores on the matrix
+          description: >-
+            When the opponent scores, the matrix briefly splashes it in their
+            color ("IU TD!"). Your lights never celebrate for them; this is
+            matrix-only. Turn off for a board that only reacts to your team.
+          default: true
+          selector:
+            boolean:
+        opponent_action:
+          name: Opponent scored action (optional)
+          description: Runs when the opponent scores, for whatever mourning ritual you prefer.
+          default: []
+          selector:
+            action:
 
 mode: queued
 max: 25
@@ -269,6 +284,11 @@ triggers:
     entity_id: !input teamtracker_sensor
     to: "POST"
     id: game_end
+  - alias: "Opponent score changed"
+    trigger: state
+    entity_id: !input teamtracker_sensor
+    attribute: opponent_score
+    id: opp_score
   - alias: "Any game data changed"
     trigger: state
     entity_id: !input teamtracker_sensor
@@ -280,6 +300,7 @@ variables:
   game_page: !input game_page
   push_action: !input push_action
   ticker_parts: !input ticker_parts
+  opponent_splash: !input opponent_splash
   page_select: >-
     {%- set ns = namespace(found='', fallback='') -%}
     {%- for e in device_entities(matrix_device) -%}
@@ -618,6 +639,64 @@ actions:
                 action: scene.turn_on
                 target:
                   entity_id: "scene.{{ ambient_scene_id }}"
+
+      - alias: "Acknowledge an opponent score"
+        conditions:
+          - condition: trigger
+            id: opp_score
+          - alias: "Game is live"
+            condition: state
+            entity_id: !input teamtracker_sensor
+            state: "IN"
+          - alias: "Their score went up (ignore resets and corrections)"
+            condition: template
+            value_template: >-
+              {{ trigger.from_state is not none and trigger.to_state is not none and
+                 (trigger.from_state.attributes.opponent_score | int(-1)) >= 0 and
+                 (trigger.to_state.attributes.opponent_score | int(-1)) >
+                 (trigger.from_state.attributes.opponent_score | int(-1)) }}
+        sequence:
+          - variables:
+              opp_delta: >-
+                {{ (trigger.to_state.attributes.opponent_score | int(0)) -
+                   (trigger.from_state.attributes.opponent_score | int(0)) }}
+              sport: "{{ state_attr(teamtracker_sensor, 'sport') | lower }}"
+              opp_abbr: "{{ state_attr(teamtracker_sensor, 'opponent_abbr') | default('', true) }}"
+              opp_splash_text: >-
+                {%- if sport == 'football' and opp_delta in [6, 7, 8] -%}{{ opp_abbr }} TD
+                {%- elif sport == 'football' and opp_delta == 3 -%}{{ opp_abbr }} FG
+                {%- else -%}{{ opp_abbr }} SCORE
+                {%- endif -%}
+              opp_colors: >-
+                {% set tc = state_attr(teamtracker_sensor, 'opponent_colors') %}
+                {% if tc is string %}{{ [tc, tc] }}
+                {% elif tc is sequence and tc | length > 0 %}{{ tc | list }}
+                {% else %}{{ ['#800000', '#FFFFFF'] }}{% endif %}
+          - alias: "Splash it on the matrix in their color"
+            if:
+              - condition: template
+                value_template: "{{ opponent_splash }}"
+            then:
+              - continue_on_error: true
+                action: "{{ resolved_push_action }}"
+                data:
+                  game_state: "{{ states(teamtracker_sensor) }}"
+                  team_abbr: "{{ state_attr(teamtracker_sensor, 'team_abbr') | default('', true) }}"
+                  team_score: "{{ state_attr(teamtracker_sensor, 'team_score') | int(0) }}"
+                  opponent_abbr: "{{ opp_abbr }}"
+                  opponent_score: "{{ state_attr(teamtracker_sensor, 'opponent_score') | int(0) }}"
+                  team_logo: "{{ state_attr(teamtracker_sensor, 'team_logo') | default('', true) }}"
+                  opponent_logo: "{{ state_attr(teamtracker_sensor, 'opponent_logo') | default('', true) }}"
+                  possession: 0
+                  team_timeouts: "{{ state_attr(teamtracker_sensor, 'team_timeouts') | int(0) }}"
+                  opponent_timeouts: "{{ state_attr(teamtracker_sensor, 'opponent_timeouts') | int(0) }}"
+                  team_record: "{{ state_attr(teamtracker_sensor, 'team_record') | default('', true) }}"
+                  opponent_record: "{{ state_attr(teamtracker_sensor, 'opponent_record') | default('', true) }}"
+                  status_text: "{{ state_attr(teamtracker_sensor, 'clock') | default('In Progress', true) }}"
+                  splash_text: "{{ opp_splash_text }}"
+                  splash_color: "{{ (opp_colors[0] | replace('#', '')) | int(base=16) }}"
+          - alias: "Run the opponent scored action"
+            sequence: !input opponent_action
 
       - alias: "Restore the previous page after the game"
         conditions:

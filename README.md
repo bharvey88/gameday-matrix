@@ -37,7 +37,7 @@ The original per-team compiled page (`packages/pages/teamtracker.yaml` upstream)
 
 ## Notes
 
-- Opponent scores don't trigger anything. On purpose.
+- Opponent scores show briefly on the matrix in their color ("IU TD"), and nothing else: your lights never celebrate for them. A toggle turns even the matrix reaction off, and an action slot exists if you want a mourning ritual.
 - The lights snapshot and restore uses `scene.create`, so if Home Assistant restarts mid-game the "switch back after the game" step is skipped and the matrix stays on the game page.
 - Color-capable lights work best for the flash. Lights without RGB support may ignore the color and just blink.
 - Touchdown detection watches the score jump: +6, +7, and +8 all count as a touchdown since the API often reports the extra point in the same update.
