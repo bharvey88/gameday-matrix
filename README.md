@@ -29,7 +29,7 @@ The original per-team compiled page (`packages/pages/teamtracker.yaml` upstream)
    - **Matrix**: pick your matrix from the dropdown. It only lists hub75-studio devices (firmware built from the gameday branch or a recent factory image; older source builds don't identify themselves and won't appear until reflashed).
    - **Team Tracker page name** and **data push action**: leave both empty. The automation finds the device's page selector and `teamtracker_update` action on its own. They're only overrides for unusual setups.
    - **Timing**: how early to switch before kickoff and how long the final score lingers.
-   - **Celebrations**: pick lights and they flash in team colors, automatically scaled to the play: touchdowns strobe long and fast, field goals get a standard flash, extra points a quick pulse. Got a WLED strip? Pick its Preset entity and name a preset per score type ("Fireworks" on a touchdown); the strip runs it and then returns to what it was doing. Free-form action slots remain for anything else.
+   - **Celebrations**: pick lights and they flash in team colors, automatically scaled to the play: touchdowns strobe long and fast, field goals get a standard flash, extra points a quick pulse. Got WLED strips among those lights? Just type a preset name per score type ("Fireworks" on a touchdown); every selected strip that has a preset by that name runs it and then returns to what it was doing, no extra entities to pick. Free-form action slots remain for anything else.
 
 ## Notes
 

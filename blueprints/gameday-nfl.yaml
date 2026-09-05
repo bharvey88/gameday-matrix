@@ -132,20 +132,13 @@ blueprint:
               min: 1
               max: 10
               step: 1
-        wled_preset_select:
-          name: WLED preset entity (optional)
-          description: >-
-            Have a WLED strip? Pick its Preset entity and name presets below to
-            fire on scores. The strip returns to its previous preset afterward.
-          default: []
-          selector:
-            entity:
-              filter:
-                - integration: wled
-                  domain: select
         touchdown_preset:
           name: WLED preset on touchdown
-          description: Exact preset name to run on a touchdown, for example "Fireworks".
+          description: >-
+            Exact preset name to run on a touchdown, for example "Fireworks".
+            Runs on every celebration light above that is a WLED strip with a
+            preset by that name; the strip returns to its previous state
+            afterward.
           default: ""
           selector:
             text:
@@ -376,12 +369,29 @@ actions:
                    else flash_cycles if score_type == 'fg'
                    else [flash_cycles // 2, 2] | max }}
               flash_ms: "{{ 250 if score_type == 'td' else 450 }}"
-              wled_select: !input wled_preset_select
+              wled_selects: >-
+                {%- set ns = namespace(sels=[]) -%}
+                {%- for l in celebration_lights -%}
+                {%- for e in device_entities(device_id(l)) -%}
+                {%- if e.startswith('select.') and e.endswith('_preset') -%}
+                {%- set ns.sels = ns.sels + [e] -%}
+                {%- endif -%}
+                {%- endfor -%}
+                {%- endfor -%}
+                {{ ns.sels | unique | list }}
               wled_preset: >-
                 {%- if score_type == 'td' -%}{{ touchdown_preset | trim }}
                 {%- elif score_type == 'fg' -%}{{ field_goal_preset | trim }}
                 {%- else -%}{{ score_preset | trim }}
                 {%- endif -%}
+              wled_targets: >-
+                {%- set ns = namespace(t=[]) -%}
+                {%- for e in wled_selects -%}
+                {%- if wled_preset != '' and wled_preset in (state_attr(e, 'options') or []) -%}
+                {%- set ns.t = ns.t + [e] -%}
+                {%- endif -%}
+                {%- endfor -%}
+                {{ ns.t }}
               team_colors: >-
                 {% set tc = state_attr(teamtracker_sensor, 'team_colors') %}
                 {% if tc is string %}{{ [tc, tc] }}
@@ -436,21 +446,20 @@ actions:
                   entity_id: "scene.{{ lights_scene_id }}"
           - alias: "Run a WLED preset for this score type"
             if:
-              - alias: "WLED entity picked and a preset named for this score"
+              - alias: "A celebration light is a WLED strip with this preset"
                 condition: template
-                value_template: "{{ wled_select | length > 0 and wled_preset != '' }}"
+                value_template: "{{ wled_targets | length > 0 }}"
             then:
-              - alias: "Remember the strip's current preset"
+              - alias: "Remember the strips' current presets"
                 action: scene.create
                 data:
                   scene_id: "{{ wled_scene_id }}"
-                  snapshot_entities:
-                    - "{{ wled_select }}"
+                  snapshot_entities: "{{ wled_targets }}"
               - alias: "Fire the celebration preset"
                 continue_on_error: true
                 action: select.select_option
                 target:
-                  entity_id: "{{ wled_select }}"
+                  entity_id: "{{ wled_targets }}"
                 data:
                   option: "{{ wled_preset }}"
               - alias: "Let it run"
