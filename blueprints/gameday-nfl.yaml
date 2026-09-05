@@ -319,6 +319,14 @@ actions:
                       {% set kickoff = as_datetime(state_attr(teamtracker_sensor, 'date')) %}
                       {{ kickoff is not none and
                          0 <= (kickoff - now()).total_seconds() <= pregame_lead * 60 }}
+              - alias: "Game already live (catches mid-game setup and HA restarts)"
+                condition: and
+                conditions:
+                  - condition: trigger
+                    id: pregame_check
+                  - condition: state
+                    entity_id: !input teamtracker_sensor
+                    state: "IN"
           - alias: "Game page found and not already showing"
             condition: template
             value_template: >-
