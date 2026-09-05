@@ -122,13 +122,53 @@ blueprint:
                 domain: light
         flash_cycles:
           name: Flash cycles
-          description: How many times the lights alternate between team colors.
+          description: >-
+            Baseline for the light flash: how many times the lights alternate
+            between team colors on a field goal. Touchdowns automatically flash
+            twice as long and faster; extra points shorter.
           default: 4
           selector:
             number:
               min: 1
               max: 10
               step: 1
+        wled_preset_select:
+          name: WLED preset entity (optional)
+          description: >-
+            Have a WLED strip? Pick its Preset entity and name presets below to
+            fire on scores. The strip returns to its previous preset afterward.
+          default: []
+          selector:
+            entity:
+              filter:
+                - integration: wled
+                  domain: select
+        touchdown_preset:
+          name: WLED preset on touchdown
+          description: Exact preset name to run on a touchdown, for example "Fireworks".
+          default: ""
+          selector:
+            text:
+        field_goal_preset:
+          name: WLED preset on field goal
+          default: ""
+          selector:
+            text:
+        score_preset:
+          name: WLED preset on any other score
+          default: ""
+          selector:
+            text:
+        wled_restore_seconds:
+          name: WLED celebration length
+          description: How long the preset runs before the strip goes back to what it was doing.
+          default: 15
+          selector:
+            number:
+              min: 3
+              max: 120
+              step: 1
+              unit_of_measurement: seconds
         touchdown_action:
           name: Touchdown action
           description: >-
@@ -209,6 +249,9 @@ variables:
   pregame_lead: !input pregame_lead
   celebration_lights: !input celebration_lights
   flash_cycles: !input flash_cycles
+  touchdown_preset: !input touchdown_preset
+  field_goal_preset: !input field_goal_preset
+  score_preset: !input score_preset
   resolved_game_page: >-
     {%- if game_page | trim != '' -%}
     {{ game_page | trim }}
@@ -221,6 +264,7 @@ variables:
     {%- endif -%}
   snapshot_scene_id: "gameday_page_{{ this.entity_id.split('.')[1] }}"
   lights_scene_id: "gameday_lights_{{ this.entity_id.split('.')[1] }}"
+  wled_scene_id: "gameday_wled_{{ this.entity_id.split('.')[1] }}"
 
 actions:
   - alias: "Push game data to the matrix (Team Tracker Live page)"
@@ -315,6 +359,21 @@ actions:
                 {{ (trigger.to_state.attributes.team_score | int(0)) -
                    (trigger.from_state.attributes.team_score | int(0)) }}
               sport: "{{ state_attr(teamtracker_sensor, 'sport') | lower }}"
+              score_type: >-
+                {%- if sport == 'football' and score_delta in [6, 7, 8] -%}td
+                {%- elif sport == 'football' and score_delta == 3 -%}fg
+                {%- else -%}other{%- endif -%}
+              celebration_cycles: >-
+                {{ flash_cycles * 2 if score_type == 'td'
+                   else flash_cycles if score_type == 'fg'
+                   else [flash_cycles // 2, 2] | max }}
+              flash_ms: "{{ 250 if score_type == 'td' else 450 }}"
+              wled_select: !input wled_preset_select
+              wled_preset: >-
+                {%- if score_type == 'td' -%}{{ touchdown_preset | trim }}
+                {%- elif score_type == 'fg' -%}{{ field_goal_preset | trim }}
+                {%- else -%}{{ score_preset | trim }}
+                {%- endif -%}
               team_colors: >-
                 {% set tc = state_attr(teamtracker_sensor, 'team_colors') %}
                 {% if tc is string %}{{ [tc, tc] }}
@@ -341,9 +400,9 @@ actions:
                 data:
                   scene_id: "{{ lights_scene_id }}"
                   snapshot_entities: "{{ celebration_lights }}"
-              - alias: "Alternate between the two team colors"
+              - alias: "Alternate between the two team colors, scaled to the score"
                 repeat:
-                  count: "{{ flash_cycles }}"
+                  count: "{{ celebration_cycles }}"
                   sequence:
                     - alias: "Team color one"
                       action: light.turn_on
@@ -353,7 +412,7 @@ actions:
                         rgb_color: "{{ color_a }}"
                         brightness: 255
                     - delay:
-                        milliseconds: 450
+                        milliseconds: "{{ flash_ms }}"
                     - alias: "Team color two"
                       action: light.turn_on
                       target:
@@ -362,11 +421,42 @@ actions:
                         rgb_color: "{{ color_b }}"
                         brightness: 255
                     - delay:
-                        milliseconds: 450
+                        milliseconds: "{{ flash_ms }}"
               - alias: "Restore the lights"
                 action: scene.turn_on
                 target:
                   entity_id: "scene.{{ lights_scene_id }}"
+          - alias: "Run a WLED preset for this score type"
+            if:
+              - alias: "WLED entity picked and a preset named for this score"
+                condition: template
+                value_template: "{{ wled_select | length > 0 and wled_preset != '' }}"
+            then:
+              - alias: "Remember the strip's current preset"
+                action: scene.create
+                data:
+                  scene_id: "{{ wled_scene_id }}"
+                  snapshot_entities:
+                    - "{{ wled_select }}"
+              - alias: "Fire the celebration preset"
+                continue_on_error: true
+                action: select.select_option
+                target:
+                  entity_id: "{{ wled_select }}"
+                data:
+                  option: "{{ wled_preset }}"
+              - alias: "Let it run"
+                delay:
+                  seconds: !input wled_restore_seconds
+              - alias: "Back to the previous preset (if one was active)"
+                if:
+                  - condition: template
+                    value_template: "{{ states('scene.' ~ wled_scene_id) not in ['unknown', 'unavailable', none] }}"
+                then:
+                  - continue_on_error: true
+                    action: scene.turn_on
+                    target:
+                      entity_id: "scene.{{ wled_scene_id }}"
           - alias: "Run the matching score action"
             choose:
               - alias: "Touchdown (+6 to +8)"
