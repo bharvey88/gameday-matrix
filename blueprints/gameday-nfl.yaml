@@ -29,7 +29,7 @@ blueprint:
     walkthrough in the [README](https://github.com/bharvey88/gameday-matrix).
 
 
-    Blueprint version: 10 (strobe-first celebrations)
+    Blueprint version: 11 (one-hit color hold, everything in sync)
   domain: automation
   source_url: https://github.com/bharvey88/gameday-matrix/blob/main/blueprints/gameday-nfl.yaml
   input:
@@ -154,18 +154,19 @@ blueprint:
               multiple: true
               filter:
                 domain: light
-        flash_cycles:
-          name: Flash cycles
+        hold_seconds:
+          name: Celebration hold
           description: >-
-            Baseline for the light flash: how many times the lights alternate
-            between team colors on a field goal. Touchdowns automatically flash
-            twice as long and faster; extra points shorter.
-          default: 4
+            How long the lights hold your team's color on a field goal.
+            Touchdowns hold a bit longer, extra points shorter. All lights
+            change together in one go, so mixed hardware stays in sync.
+          default: 3
           selector:
             number:
               min: 1
-              max: 10
+              max: 15
               step: 1
+              unit_of_measurement: seconds
         touchdown_effect:
           name: Extra light effect on touchdown (optional)
           description: >-
@@ -212,8 +213,8 @@ blueprint:
                 - "Wipe"
         wled_restore_seconds:
           name: Effect celebration length
-          description: How long the effect runs before the lights go back to what they were doing.
-          default: 15
+          description: How long the optional effect runs before the lights go back to what they were doing.
+          default: 8
           selector:
             number:
               min: 3
@@ -300,7 +301,7 @@ variables:
     {%- endif -%}
   pregame_lead: !input pregame_lead
   celebration_lights: !input celebration_lights
-  flash_cycles: !input flash_cycles
+  hold_seconds: !input hold_seconds
   touchdown_effect: !input touchdown_effect
   field_goal_effect: !input field_goal_effect
   score_effect: !input score_effect
@@ -453,11 +454,10 @@ actions:
                 {%- if sport == 'football' and score_delta in [6, 7, 8] -%}td
                 {%- elif sport == 'football' and score_delta == 3 -%}fg
                 {%- else -%}other{%- endif -%}
-              celebration_cycles: >-
-                {{ flash_cycles * 3 if score_type == 'td'
-                   else flash_cycles if score_type == 'fg'
-                   else [flash_cycles // 2, 2] | max }}
-              flash_ms: "{{ 200 if score_type == 'td' else 450 }}"
+              celebration_hold: >-
+                {{ hold_seconds * 2 if score_type == 'td'
+                   else hold_seconds if score_type == 'fg'
+                   else [hold_seconds // 2, 1] | max }}
               fx_effect: >-
                 {%- if score_type == 'td' -%}{{ touchdown_effect }}
                 {%- elif score_type == 'fg' -%}{{ field_goal_effect }}
@@ -481,15 +481,6 @@ actions:
                 {% if c | length >= 6 %}
                 {{ [c[0:2] | int(base=16), c[2:4] | int(base=16), c[4:6] | int(base=16)] }}
                 {% else %}{{ [255, 255, 255] }}{% endif %}
-              color_b: >-
-                {% if score_type == 'td' %}
-                {{ [255, 255, 255] }}
-                {% else %}
-                {% set c = ((team_colors[1] if team_colors | length > 1 else team_colors[0]) | replace('#', '')) %}
-                {% if c | length >= 6 %}
-                {{ [c[0:2] | int(base=16), c[2:4] | int(base=16), c[4:6] | int(base=16)] }}
-                {% else %}{{ [255, 0, 0] }}{% endif %}
-                {% endif %}
           - alias: "Splash the score on the matrix"
             continue_on_error: true
             action: "{{ resolved_push_action }}"
@@ -542,28 +533,16 @@ actions:
                 data:
                   scene_id: "{{ lights_scene_id }}"
                   snapshot_entities: "{{ celebration_lights }}"
-              - alias: "Alternate between the two team colors, scaled to the score"
-                repeat:
-                  count: "{{ celebration_cycles }}"
-                  sequence:
-                    - alias: "Team color one"
-                      action: light.turn_on
-                      target:
-                        entity_id: !input celebration_lights
-                      data:
-                        rgb_color: "{{ color_a }}"
-                        brightness: 255
-                    - delay:
-                        milliseconds: "{{ flash_ms }}"
-                    - alias: "Team color two"
-                      action: light.turn_on
-                      target:
-                        entity_id: !input celebration_lights
-                      data:
-                        rgb_color: "{{ color_b }}"
-                        brightness: 255
-                    - delay:
-                        milliseconds: "{{ flash_ms }}"
+              - alias: "All lights to team color in one hit"
+                action: light.turn_on
+                target:
+                  entity_id: !input celebration_lights
+                data:
+                  rgb_color: "{{ color_a }}"
+                  brightness: 255
+              - alias: "Hold, scaled to the score"
+                delay:
+                  seconds: "{{ celebration_hold }}"
               - alias: "Restore the lights"
                 action: scene.turn_on
                 target:

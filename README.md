@@ -33,7 +33,7 @@ The original per-team compiled page (`packages/pages/teamtracker.yaml` upstream)
 
    Firmware and blueprint move together: the scoreboard extras need both the current `gameday` firmware and the current blueprint. Mismatched versions degrade gracefully (the push just skips), but you only get the full show when both are fresh.
    - **Timing**: how early to switch before kickoff and how long the final score lingers.
-   - **Celebrations**: pick lights and the team-color strobe does the work, automatically scaled to the play: touchdowns get a long, fast team-color-on-white strobe, field goals a standard two-color flash, extra points a quick pulse. Optionally layer a WLED effect on top from a dropdown curated for strips that sit behind a TV ("Lightning" is the touchdown pick); lights that don't support the chosen effect just strobe. If HyperHDR or Hyperion normally streams to those strips, add its entities to "Ambient lighting to pause": the stream pauses for the celebration and resumes exactly as it was. Free-form action slots remain for anything else.
+   - **Celebrations**: pick lights and they all snap to your team's color in a single hit (one command, so mixed hardware stays in sync), hold for a few seconds scaled to the play (touchdowns longest), then return to what they were doing. Optionally layer a WLED effect on top from a dropdown curated for strips that sit behind a TV ("Lightning" is the touchdown pick). If HyperHDR or Hyperion normally streams to those strips, add its entities to "Ambient lighting to pause": the stream pauses for the celebration and resumes exactly as it was. Free-form action slots remain for anything else.
 
 ## Notes
 
