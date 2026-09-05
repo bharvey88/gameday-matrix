@@ -43,18 +43,18 @@ blueprint:
               filter:
                 integration: teamtracker
                 domain: sensor
-        page_select:
-          name: Matrix page select
+        matrix_device:
+          name: Matrix
           description: >-
-            The matrix's "Select Page" entity, usually named like
-            "Apollo M-1 Select Page". Type "select page" in the box to find
-            it. Other devices' select entities (WLED palettes, probe
-            selectors) are not it.
+            Your HUB75 matrix running hub75-studio. If the dropdown is empty,
+            your matrix is running firmware from before hub75-studio identified
+            itself to Home Assistant; update the device's firmware first.
           selector:
-            entity:
+            device:
               filter:
                 - integration: esphome
-                  domain: select
+                  manufacturer: pavlov-net
+                  model: hub75-studio
         game_page:
           name: Team Tracker page name (optional)
           description: >-
@@ -183,14 +183,28 @@ triggers:
 
 variables:
   teamtracker_sensor: !input teamtracker_sensor
-  page_select: !input page_select
+  matrix_device: !input matrix_device
   game_page: !input game_page
   push_action: !input push_action
+  page_select: >-
+    {%- set ns = namespace(found='', fallback='') -%}
+    {%- for e in device_entities(matrix_device) -%}
+    {%- if e.startswith('select.') -%}
+    {%- set opts = state_attr(e, 'options') or [] -%}
+    {%- if ns.found == '' and opts | select('search', '(?i)team\\s*tracker') | list | length > 0 -%}
+    {%- set ns.found = e -%}
+    {%- endif -%}
+    {%- if ns.fallback == '' and 'select_page' in e -%}
+    {%- set ns.fallback = e -%}
+    {%- endif -%}
+    {%- endif -%}
+    {%- endfor -%}
+    {{ ns.found if ns.found != '' else ns.fallback }}
   resolved_push_action: >-
     {%- if push_action | trim != '' -%}
     {{ push_action | trim }}
     {%- else -%}
-    esphome.{{ device_attr(device_id(page_select), 'name') | lower | regex_replace('[^a-z0-9]+', '_') }}_teamtracker_update
+    esphome.{{ device_attr(matrix_device, 'name') | lower | regex_replace('[^a-z0-9]+', '_') }}_teamtracker_update
     {%- endif -%}
   pregame_lead: !input pregame_lead
   celebration_lights: !input celebration_lights
@@ -276,7 +290,7 @@ actions:
           - alias: "Show the game page"
             action: select.select_option
             target:
-              entity_id: !input page_select
+              entity_id: "{{ page_select }}"
             data:
               option: "{{ resolved_game_page }}"
 

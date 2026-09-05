@@ -26,8 +26,8 @@ The original per-team compiled page (`packages/pages/teamtracker.yaml` upstream)
 1. Click the import badge above and save the blueprint.
 2. Create an automation from it and fill in:
    - **Team Tracker sensor**: your team's sensor.
-   - **Matrix page select**: the device's "Select Page" entity (search your entities for "Select Page").
-   - **Team Tracker page name** and **data push action**: leave both empty. The automation finds the page by name and works out the device's `teamtracker_update` action from the page select entity. They're only overrides for unusual setups.
+   - **Matrix**: pick your matrix from the dropdown. It only lists hub75-studio devices (firmware built from the gameday branch or a recent factory image; older source builds don't identify themselves and won't appear until reflashed).
+   - **Team Tracker page name** and **data push action**: leave both empty. The automation finds the device's page selector and `teamtracker_update` action on its own. They're only overrides for unusual setups.
    - **Timing**: how early to switch before kickoff and how long the final score lingers.
    - **Celebrations**: pick lights to flash in team colors, and add actions if you want more. Touchdowns and field goals get their own slots; extra points, two-point conversions, and safeties hit the other-score slot.
 
