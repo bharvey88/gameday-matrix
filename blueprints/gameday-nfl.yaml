@@ -29,7 +29,7 @@ blueprint:
     walkthrough in the [README](https://github.com/bharvey88/gameday-matrix).
 
 
-    Blueprint version: 8 (light effect dropdowns)
+    Blueprint version: 9 (ambient capture pause)
   domain: automation
   source_url: https://github.com/bharvey88/gameday-matrix/blob/main/blueprints/gameday-nfl.yaml
   input:
@@ -127,6 +127,21 @@ blueprint:
       icon: mdi:party-popper
       collapsed: true
       input:
+        ambient_pause_entities:
+          name: Ambient lighting to pause (optional)
+          description: >-
+            Running HyperHDR, Hyperion, or another ambient-capture system that
+            streams to your celebration lights? Pick its entities here (the
+            Hyperion integration's light entities work). They pause during
+            celebrations so the effects can actually show, then resume exactly
+            as they were.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: light
+                - domain: switch
         celebration_lights:
           name: Celebration lights
           description: >-
@@ -311,8 +326,10 @@ variables:
     {{ ((named + tt) | first) | default('', true) }}
     {%- endif -%}
   snapshot_scene_id: "gameday_page_{{ this.entity_id.split('.')[1] }}"
+  ambient_pause_entities: !input ambient_pause_entities
   lights_scene_id: "gameday_lights_{{ this.entity_id.split('.')[1] }}"
   wled_scene_id: "gameday_wled_{{ this.entity_id.split('.')[1] }}"
+  ambient_scene_id: "gameday_ambient_{{ this.entity_id.split('.')[1] }}"
 
 actions:
   - alias: "Push game data to the matrix (Team Tracker Live page)"
@@ -502,6 +519,25 @@ actions:
                 {%- elif score_type == 'fg' -%}FIELD GOAL!
                 {%- else -%}SCORE!{%- endif -%}
               splash_color: "{{ (team_colors[0] | replace('#', '')) | int(base=16) }}"
+          - alias: "Pause ambient capture (HyperHDR and friends)"
+            if:
+              - alias: "Ambient entities configured"
+                condition: template
+                value_template: "{{ ambient_pause_entities | count > 0 }}"
+            then:
+              - alias: "Remember the ambient state"
+                action: scene.create
+                data:
+                  scene_id: "{{ ambient_scene_id }}"
+                  snapshot_entities: "{{ ambient_pause_entities }}"
+              - alias: "Stop the ambient stream"
+                continue_on_error: true
+                action: homeassistant.turn_off
+                target:
+                  entity_id: "{{ ambient_pause_entities }}"
+              - alias: "Let the strips leave live mode"
+                delay:
+                  milliseconds: 1500
           - alias: "Flash the celebration lights in team colors"
             if:
               - alias: "Any celebration lights configured"
@@ -584,6 +620,18 @@ actions:
                     value_template: "{{ sport == 'football' and score_delta == 3 }}"
                 sequence: !input field_goal_action
             default: !input score_action
+          - alias: "Resume ambient capture as it was"
+            if:
+              - alias: "Ambient entities were paused"
+                condition: template
+                value_template: >-
+                  {{ ambient_pause_entities | count > 0 and
+                     states('scene.' ~ ambient_scene_id) not in ['unknown', 'unavailable', none] }}
+            then:
+              - continue_on_error: true
+                action: scene.turn_on
+                target:
+                  entity_id: "scene.{{ ambient_scene_id }}"
 
       - alias: "Restore the previous page after the game"
         conditions:
