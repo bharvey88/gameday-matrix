@@ -29,7 +29,7 @@ blueprint:
     walkthrough in the [README](https://github.com/bharvey88/gameday-matrix).
 
 
-    Blueprint version: 20 (renamed to Football Game Day)
+    Blueprint version: 21 (logo URL rewrite defined once)
   domain: automation
   source_url: https://github.com/bharvey88/gameday-matrix/blob/main/blueprints/gameday-football.yaml
   input:
@@ -339,6 +339,10 @@ variables:
     {%- endif -%}
   snapshot_scene_id: "gameday_page_{{ this.entity_id.split('.')[1] }}"
   ambient_pause_entities: !input ambient_pause_entities
+  team_logo_url: >-
+    {{ state_attr(teamtracker_sensor, 'team_logo') | default('', true) | replace('/500/', '/500-dark/') }}
+  opponent_logo_url: >-
+    {{ state_attr(teamtracker_sensor, 'opponent_logo') | default('', true) | replace('/500/', '/500-dark/') }}
   lights_scene_id: "gameday_lights_{{ this.entity_id.split('.')[1] }}"
   ambient_scene_id: "gameday_ambient_{{ this.entity_id.split('.')[1] }}"
 
@@ -360,8 +364,8 @@ actions:
           team_score: "{{ state_attr(teamtracker_sensor, 'team_score') | int(0) }}"
           opponent_abbr: "{{ state_attr(teamtracker_sensor, 'opponent_abbr') | default('', true) }}"
           opponent_score: "{{ state_attr(teamtracker_sensor, 'opponent_score') | int(0) }}"
-          team_logo: "{{ state_attr(teamtracker_sensor, 'team_logo') | default('', true) | replace('/500/', '/500-dark/') }}"
-          opponent_logo: "{{ state_attr(teamtracker_sensor, 'opponent_logo') | default('', true) | replace('/500/', '/500-dark/') }}"
+          team_logo: "{{ team_logo_url }}"
+          opponent_logo: "{{ opponent_logo_url }}"
           possession: >-
             {%- set poss = state_attr(teamtracker_sensor, 'possession') | string -%}
             {%- if poss == state_attr(teamtracker_sensor, 'team_id') | string and poss != 'None' -%}1
@@ -547,8 +551,8 @@ actions:
               team_score: "{{ state_attr(teamtracker_sensor, 'team_score') | int(0) }}"
               opponent_abbr: "{{ state_attr(teamtracker_sensor, 'opponent_abbr') | default('', true) }}"
               opponent_score: "{{ state_attr(teamtracker_sensor, 'opponent_score') | int(0) }}"
-              team_logo: "{{ state_attr(teamtracker_sensor, 'team_logo') | default('', true) | replace('/500/', '/500-dark/') }}"
-              opponent_logo: "{{ state_attr(teamtracker_sensor, 'opponent_logo') | default('', true) | replace('/500/', '/500-dark/') }}"
+              team_logo: "{{ team_logo_url }}"
+              opponent_logo: "{{ opponent_logo_url }}"
               possession: 0
               team_timeouts: "{{ state_attr(teamtracker_sensor, 'team_timeouts') | int(0) }}"
               opponent_timeouts: "{{ state_attr(teamtracker_sensor, 'opponent_timeouts') | int(0) }}"
@@ -715,8 +719,8 @@ actions:
                   team_score: "{{ state_attr(teamtracker_sensor, 'team_score') | int(0) }}"
                   opponent_abbr: "{{ opp_abbr }}"
                   opponent_score: "{{ state_attr(teamtracker_sensor, 'opponent_score') | int(0) }}"
-                  team_logo: "{{ state_attr(teamtracker_sensor, 'team_logo') | default('', true) | replace('/500/', '/500-dark/') }}"
-                  opponent_logo: "{{ state_attr(teamtracker_sensor, 'opponent_logo') | default('', true) | replace('/500/', '/500-dark/') }}"
+                  team_logo: "{{ team_logo_url }}"
+                  opponent_logo: "{{ opponent_logo_url }}"
                   possession: 0
                   team_timeouts: "{{ state_attr(teamtracker_sensor, 'team_timeouts') | int(0) }}"
                   opponent_timeouts: "{{ state_attr(teamtracker_sensor, 'opponent_timeouts') | int(0) }}"
@@ -752,8 +756,8 @@ actions:
                   team_score: "{{ state_attr(teamtracker_sensor, 'team_score') | int(0) }}"
                   opponent_abbr: "{{ state_attr(teamtracker_sensor, 'opponent_abbr') | default('', true) }}"
                   opponent_score: "{{ state_attr(teamtracker_sensor, 'opponent_score') | int(0) }}"
-                  team_logo: "{{ state_attr(teamtracker_sensor, 'team_logo') | default('', true) | replace('/500/', '/500-dark/') }}"
-                  opponent_logo: "{{ state_attr(teamtracker_sensor, 'opponent_logo') | default('', true) | replace('/500/', '/500-dark/') }}"
+                  team_logo: "{{ team_logo_url }}"
+                  opponent_logo: "{{ opponent_logo_url }}"
                   possession: 0
                   team_timeouts: "{{ state_attr(teamtracker_sensor, 'team_timeouts') | int(0) }}"
                   opponent_timeouts: "{{ state_attr(teamtracker_sensor, 'opponent_timeouts') | int(0) }}"
