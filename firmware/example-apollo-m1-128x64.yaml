@@ -1,6 +1,6 @@
 # Example Apollo M-1 config: two 64x64 panels side by side (128x64) with the
-# local two-panel Team Tracker page from this folder.
-# Copy this next to teamtracker-128x64.yaml, set your team, flash with ESPHome.
+# two-panel Team Tracker page from the bharvey88/hub75-studio fork (gameday
+# branch). Set your team at the bottom and flash with ESPHome.
 
 substitutions:
   name: "apollo-m1-r6"
@@ -40,8 +40,8 @@ web_server:
 
 packages:
   remote_package_files:
-    url: https://github.com/pavlov-net/hub75-studio
-    ref: main
+    url: https://github.com/bharvey88/hub75-studio
+    ref: gameday
     refresh: 0s
     files:
       # Sets minimum supported ESPHome version
@@ -79,10 +79,9 @@ packages:
         vars:
           page_friendly_name: "Clock"
 
-  # Local two-panel Team Tracker page (the file next to this one)
-  teamtracker_local: !include
-    file: teamtracker-128x64.yaml
-    vars:
-      uid: "cowboys"
-      page_friendly_name: "Team Tracker - Cowboys"
-      entity_id: "sensor.team_tracker_dal"
+      # Two-panel Team Tracker page (from the gameday branch of the fork)
+      - path: packages/pages/teamtracker-128x64.yaml
+        vars:
+          uid: "cowboys"
+          page_friendly_name: "Team Tracker - Cowboys"
+          entity_id: "sensor.team_tracker_dal"
