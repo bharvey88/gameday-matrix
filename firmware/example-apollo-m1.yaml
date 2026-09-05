@@ -1,18 +1,23 @@
-# Example Apollo M-1 config: two 64x64 panels side by side (128x64) with the
-# zero-config "Team Tracker Live" page from the bharvey88/hub75-studio fork
-# (gameday branch). No team configuration in here: flash once, then pick your
-# team in the Game Day blueprint in Home Assistant.
+# Example Apollo M-1 config with the zero-config "Team Tracker Live" page
+# from the bharvey88/hub75-studio fork (gameday branch; moves to the official
+# repo when merged upstream). No team configuration in here: flash once, then
+# pick your team in the Game Day blueprint in Home Assistant.
+#
+# Set the panel layout below to match your hardware; the scoreboard measures
+# the display at boot and lays itself out to fit (single 64x64 panel and
+# two-wide 128x64 both supported).
 
 substitutions:
   name: "apollo-m1-r6"
   friendly_name: "Apollo M-1"
 
   # ===== Display / Panel =====
+  # A single panel is rows 1 / cols 1; two panels side by side is cols 2.
   display_panel_width: 64
   display_panel_height: 64
   display_layout: HORIZONTAL
   display_layout_rows: 1
-  display_layout_cols: 2
+  display_layout_cols: 1
   display_scan_wiring: STANDARD_TWO_SCAN
 
   DISPLAY_W: ${display_panel_width * display_layout_cols}

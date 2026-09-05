@@ -1,11 +1,11 @@
 blueprint:
-  name: "NFL Game Day: TeamTracker on HUB75 Matrix"
+  name: "Football Game Day: TeamTracker on HUB75 Matrix"
   description: >-
-    Shows your NFL team's game on a HUB75 matrix running
+    Shows your football team's game (NFL or college) on a HUB75 matrix running
     [hub75-studio](https://github.com/pavlov-net/hub75-studio) (Apollo M-1 or
     any supported controller). Switches the matrix to your Team Tracker page
     before kickoff, celebrates touchdowns and field goals with your team's
-    colors, and switches back after the game. College football works too.
+    colors, and switches back after the game.
 
 
     **Prerequisites**
@@ -29,9 +29,9 @@ blueprint:
     walkthrough in the [README](https://github.com/bharvey88/gameday-matrix).
 
 
-    Blueprint version: 19 (dark-background logo variants)
+    Blueprint version: 20 (renamed to Football Game Day)
   domain: automation
-  source_url: https://github.com/bharvey88/gameday-matrix/blob/main/blueprints/gameday-nfl.yaml
+  source_url: https://github.com/bharvey88/gameday-matrix/blob/main/blueprints/gameday-football.yaml
   input:
     matrix:
       name: Matrix
