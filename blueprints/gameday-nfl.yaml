@@ -29,7 +29,7 @@ blueprint:
     walkthrough in the [README](https://github.com/bharvey88/gameday-matrix).
 
 
-    Blueprint version: 12 (instant slam through ambient, effects seamless)
+    Blueprint version: 13 (scoreboard reappears within seconds, not minutes)
   domain: automation
   source_url: https://github.com/bharvey88/gameday-matrix/blob/main/blueprints/gameday-nfl.yaml
   input:
@@ -402,11 +402,13 @@ actions:
                       {% set kickoff = as_datetime(state_attr(teamtracker_sensor, 'date')) %}
                       {{ kickoff is not none and
                          0 <= (kickoff - now()).total_seconds() <= pregame_lead * 60 }}
-              - alias: "Game already live (catches mid-game setup and HA restarts)"
+              - alias: "Game already live (catches mid-game setup, reboots, HA restarts)"
                 condition: and
                 conditions:
                   - condition: trigger
-                    id: pregame_check
+                    id:
+                      - pregame_check
+                      - push
                   - condition: state
                     entity_id: !input teamtracker_sensor
                     state: "IN"
