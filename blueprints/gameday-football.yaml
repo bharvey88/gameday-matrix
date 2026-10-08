@@ -2,8 +2,8 @@ blueprint:
   name: "Football Game Day: TeamTracker on HUB75 Matrix"
   description: >-
     Shows your football team's game (NFL or college) on a HUB75 matrix running
-    [hub75-studio](https://github.com/pavlov-net/hub75-studio) (Apollo M-1 or
-    any supported controller). Switches the matrix to your Team Tracker page
+    [hub75-studio](https://github.com/pavlov-net/hub75-studio) (any HUB75
+    panel, for example on a MoonHub75 pinout). Switches the matrix to your Team Tracker page
     before kickoff, celebrates touchdowns and field goals with your team's
     colors, and switches back after the game.
 

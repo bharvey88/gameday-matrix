@@ -1,6 +1,6 @@
 # Game Day Matrix
 
-Home Assistant blueprints that turn a HUB75 matrix running [hub75-studio](https://github.com/pavlov-net/hub75-studio) into a game-day scoreboard. Works great on the [Apollo Automation M-1](https://wiki.apolloautomation.com/) and any other controller hub75-studio supports.
+Home Assistant blueprints that turn a HUB75 matrix running [hub75-studio](https://github.com/pavlov-net/hub75-studio) into a game-day scoreboard. Works with any HUB75 panel; the example firmware uses a MoonHub75 pinout.
 
 Football (NFL and college) is first. Other sports will get their own blueprints later.
 
@@ -16,7 +16,7 @@ Football (NFL and college) is first. Other sports will get their own blueprints 
 
 ## Prerequisites
 
-1. A HUB75 matrix flashed once with [hub75-studio](https://github.com/pavlov-net/hub75-studio) plus the zero-config **Team Tracker Live** page. The [firmware folder](firmware/) has a ready-to-flash example for the Apollo M-1; set the panel layout substitutions to match your hardware and the scoreboard lays itself out to fit (single 64x64 panel and two-wide 128x64 are both supported by one page file). No teams, sensors, or page names go in the YAML: the blueprint pushes the game data to the device, so switching teams never means reflashing.
+1. A HUB75 matrix flashed once with [hub75-studio](https://github.com/pavlov-net/hub75-studio) plus the zero-config **Team Tracker Live** page. The [firmware folder](firmware/) has a ready-to-flash example for a MoonHub75 pinout; set the panel layout substitutions to match your hardware and the scoreboard lays itself out to fit (single 64x64 panel and two-wide 128x64 are both supported by one page file). No teams, sensors, or page names go in the YAML: the blueprint pushes the game data to the device, so switching teams never means reflashing.
 
    The page currently lives on the `gameday` branch of [this fork](https://github.com/bharvey88/hub75-studio); it has been offered upstream ([hub75-studio PR #148](https://github.com/pavlov-net/hub75-studio/pull/148)) and this README will point at the official repo when it lands.
 2. The [Team Tracker](https://github.com/vasqued2/ha-teamtracker) integration installed via HACS, with a sensor configured for your NFL or college football team.
